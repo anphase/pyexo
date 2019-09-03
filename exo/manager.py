@@ -1,19 +1,8 @@
-from __future__ import unicode_literals
-
 import requests
 
-try:
-    from vumeda_api.settings import EXO_URL
-except ImportError:
-    from .settings import EXO_URL
-try:
-    from basemanager import BaseManager
-except ImportError:
-    from .basemanager import BaseManager
-try:
-    from utils import isplural, singular
-except ImportError:
-    from .utils import isplural, singular
+from .settings import EXO_URL
+from .basemanager import BaseManager
+from .utils import is_plural, singular
 
 
 class Manager(BaseManager):
@@ -23,7 +12,7 @@ class Manager(BaseManager):
         self.base_url = EXO_URL
         self.extra_params = {"pagesize": "100"}
 
-        if isplural(name):
+        if is_plural(name):
             self.name = singular(name)
         else:
             self.name = name

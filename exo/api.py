@@ -1,9 +1,6 @@
 from __future__ import unicode_literals
 
-try:
-    from manager import Manager
-except ImportError:
-    from .manager import Manager
+from .manager import Manager
 
 
 class Exo(object):

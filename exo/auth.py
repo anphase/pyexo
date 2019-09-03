@@ -1,14 +1,9 @@
 import base64
-try:
-    from vumeda_api.settings import (EXO_USERNAME,
-                                     EXO_PASSWORD,
-                                     EXO_API_KEY,
-                                     EXO_TOKEN)
-except ImportError:
-    from .settings import (EXO_USERNAME,
-                           EXO_PASSWORD,
-                           EXO_API_KEY,
-                           EXO_TOKEN)
+
+from .settings import (EXO_USERNAME,
+                       EXO_PASSWORD,
+                       EXO_API_KEY,
+                       EXO_TOKEN)
 
 
 class Credentials(object):

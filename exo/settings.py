@@ -1,9 +1,6 @@
 import os
-from backports import configparser
-try:
-    from exceptions import ExoIncompleteAuthorisation
-except ImportError:
-    from .exceptions import ExoIncompleteAuthorisation
+import configparser
+from .exceptions import ExoIncompleteAuthorisation
 
 
 config = configparser.ConfigParser()

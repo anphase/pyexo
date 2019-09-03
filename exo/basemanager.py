@@ -1,23 +1,12 @@
-from __future__ import unicode_literals
-
-
 import json
 import requests
 
-try:
-    from exceptions import (
-        ExoBadRequest, ExoExceptionUnknown, ExoForbidden, ExoInternalError,
-        ExoNotFound, ExoRemoved, ExoTimeout, ExoUnauthorised
-    )
-except ModuleNotFoundError:
-    from .exceptions import (
-        ExoBadRequest, ExoExceptionUnknown, ExoForbidden, ExoInternalError,
-        ExoNotFound, ExoRemoved, ExoTimeout, ExoUnauthorised
-    )
-try:
-    from utils import isplural, singular
-except ModuleNotFoundError:
-    from .utils import isplural, singular
+from .exceptions import (
+    ExoBadRequest, ExoExceptionUnknown, ExoForbidden, ExoInternalError,
+    ExoNotFound, ExoRemoved, ExoTimeout, ExoUnauthorised
+)
+
+from .utils import is_plural, singular
 
 
 class BaseManager(object):
@@ -119,7 +108,6 @@ class BaseManager(object):
 
             elif response.status_code == 500:
                 raise ExoInternalError(response)
-
             else:
                 raise ExoExceptionUnknown(response)
 
