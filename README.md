@@ -77,3 +77,6 @@ The API is a work in progress, it returns dictionaries exactly as provided by th
 
 ## TODO
 Add tests
+
+## Requirements
+This project requires the requests module for the API calls
