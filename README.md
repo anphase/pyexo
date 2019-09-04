@@ -18,65 +18,78 @@ for the how to get these from the
 #### Environment variables
 
 For convenience you can setup the following environment variables:
-MYOB_EXO_USERNAME, MYOB_EXO_PASSWORD, MYOB_EXO_API_KEY, MYOB_EXO_TOKEN. For example, in Linux you could add these 
+EXO_USERNAME, EXO_PASSWORD, EXO_API_KEY, MYOB_EXO_TOKEN. For example, in Linux you could add these 
 variables into ~./bashrc and for MacOS into ~/.bash_profile as shown below. You can also specify the environment 
 variables in Windows. 
-Note that you will need to reload the terminal for these to come into effect e.g using . ~/.bashrc or by restarting the
-terminal.
+Note that you will need to reload the terminal for these to come into effect e.g using 
+```shell script
+$ . ~/.bashrc
+```
+or by restarting the terminal.
 
-```bash
-export MYOB_EXO_USERNAME=demo
-MYOB_EXO_PASSWORD=DEMO
-export MYOB_EXO_API_KEY=ABCta353c5R6YXRvcjo=
-export MYOB_EXO_TOKEN=123AA353c5R6YXRsTAQ18*%
+```shell script
+$ export MYOB_EXO_USERNAME=demo
+$ export MYOB_EXO_PASSWORD=DEMO
+$ export EXO_API_KEY=ABCta353c5R6YXRvcjo=
+$ export EXO_TOKEN=123AA353c5R6YXRsTAQ18*%
 ```
 
 #### Setting the Authentication Headers
 
 Setting the authentication headers is done when initialising an instance of the API. First import the modules:
 
-```python
->>> from exo import Exo
->>> from exo.auth import Credentials
+```shell script
+$ from exo import Exo
+$ from exo.auth import Credentials
 ```
 
 If you have the environment variables setup then:
 
-```python
->>> credentials = Credentials()
+```shell script
+$ credentials = Credentials()
 ```
 
 Otherwise you can enter them manually:
 
-```python
->>> credentials = Credentials(<username>, <passoword>, <key>, <token>)
+```shell script
+$ credentials = Credentials(<username>, <passoword>, <key>, <token>)
 ```
 
 Then pass them into an instance of the Exo class:
 
-```python
->>> exo = Exo(credentials)
+```shell script
+$ exo = Exo(credentials)
 ```
 
 #### EXO API Base IP and Port
 Create a '.env' file in the root directory of your application and configure it as shown below:
 ```dotenv
 [DEFAULT]
-EXO_IP = <IP ADDRESS OF COMPUTER TO ACCESS>
-EXO_PORT = <PORT>
+EXO_IP = <exo server ip>
+EXO_PORT = <api port>
+[AUTH]
+EXO_USERNAME = <your exo username>
+EXO_PASSWORD = <you exo password>
+EXO_API_KEY = <key>
+EXO_TOKEN = <token>
 ```
 e.g.
 ```dotenv
 [DEFAULT]
 EXO_IP = 192.168.0.1
 EXO_PORT = 8888
+[AUTH]
+EXO_USERNAME = demo
+EXO_PASSWORD = DEMO
+EXO_API_KEY = ABCta353c5R6YXRvcjo=
+EXO_TOKEN = 11111111111122222222222222222333333333...
 ```
 ## Using the EXO API
 
 The API is a work in progress, it returns dictionaries exactly as provided by the EXO API.
 
 ## TODO
-Add tests
+Add tests and examples
 
 ## Requirements
 This project requires the requests module for the API calls
