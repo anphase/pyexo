@@ -1,3 +1,6 @@
+"""
+Extract configuration settings from either .env file or environment variables
+"""
 import os
 import configparser
 from .exceptions import ExoIncompleteAuthorisation
@@ -12,6 +15,7 @@ port = config['DEFAULT']['EXO_PORT']
 
 EXO_URL = "http://" + ip_address + ":" + port
 
+# Optional logging and caching folders
 try:
     LOGS_DIRECTORY = config['DEFAULT']['LOGS']
 except KeyError:
