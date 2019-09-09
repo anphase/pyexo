@@ -12,8 +12,7 @@ Include the library folder with your application and import it.
 
 All requests made to the MYOB EXO API require authentication headers that contain your EXO username, password, a 
 developer key and an EXO token generated using the EXO Config application in your installation. You can find details 
-for the how to get these from the 
-[MYOB EXO API page](http://developer.myob.com/api/exo/exo-api-overview/authentication/).
+for how to get these from the MYOB EXO Developer pages:[MYOB EXO API page](http://developer.myob.com/api/exo/exo-api-overview/authentication/).
 
 #### Environment variables
 
@@ -32,6 +31,31 @@ $ export MYOB_EXO_USERNAME=demo
 $ export MYOB_EXO_PASSWORD=DEMO
 $ export EXO_API_KEY=ABCta353c5R6YXRvcjo=
 $ export EXO_TOKEN=123AA353c5R6YXRsTAQ18*%
+```
+
+You can also set the environment variables from a configuration file as below:
+
+Create a '.env' file in the root directory of your application and configure it as shown below:
+```dotenv
+[DEFAULT]
+EXO_IP = <exo server ip>
+EXO_PORT = <api port>
+[AUTH]
+EXO_USERNAME = <your exo username>
+EXO_PASSWORD = <you exo password>
+EXO_API_KEY = <key>
+EXO_TOKEN = <token>
+```
+e.g.
+```dotenv
+[DEFAULT]
+EXO_IP = 192.168.0.1
+EXO_PORT = 8888
+[AUTH]
+EXO_USERNAME = demo
+EXO_PASSWORD = DEMO
+EXO_API_KEY = ABCta353c5R6YXRvcjo=
+EXO_TOKEN = 11111111111122222222222222222333333333...
 ```
 
 #### Setting the Authentication Headers
@@ -61,29 +85,6 @@ Then pass them into an instance of the Exo class:
 $ exo = Exo(credentials)
 ```
 
-#### EXO API Base IP and Port
-Create a '.env' file in the root directory of your application and configure it as shown below:
-```dotenv
-[DEFAULT]
-EXO_IP = <exo server ip>
-EXO_PORT = <api port>
-[AUTH]
-EXO_USERNAME = <your exo username>
-EXO_PASSWORD = <you exo password>
-EXO_API_KEY = <key>
-EXO_TOKEN = <token>
-```
-e.g.
-```dotenv
-[DEFAULT]
-EXO_IP = 192.168.0.1
-EXO_PORT = 8888
-[AUTH]
-EXO_USERNAME = demo
-EXO_PASSWORD = DEMO
-EXO_API_KEY = ABCta353c5R6YXRvcjo=
-EXO_TOKEN = 11111111111122222222222222222333333333...
-```
 ## Using the EXO API
 
 The API is a work in progress, it returns dictionaries exactly as provided by the EXO API.
