@@ -3,6 +3,12 @@
 All notable changes to pyexo. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- 2026-11-08: `scripts/ci-local.sh` ratchets line coverage (100%) and the highest function
+  cyclomatic complexity (11); baselines are recorded in `docs/quality/baseline.md`.
+
 ## [0.3.0] - 2026-11-08
 
 ### Changed (breaking)
