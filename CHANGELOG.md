@@ -40,7 +40,7 @@ and the project uses [semantic versioning](https://semver.org/).
   `ValueError`. `all()` is still one page.
 - `Exo.discovery()` returns the parsed `GET <base>/discovery` response.
 - Standard `KEY=VALUE` `.env` files (comments, `export`, quotes), and `EXO_BASE_URL`.
-- `timeout` and `user_agent` arguments on `Exo`. Setting `exo.timeout` or `exo.user_agent` later also updates
+- `timeout` and `user_agent` arguments on `Exo`. Setting `exo.timeout`, `exo.user_agent` or `exo.retry` later also updates
   managers already in use.
 
 ### Deprecated

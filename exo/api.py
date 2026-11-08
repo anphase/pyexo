@@ -67,7 +67,7 @@ class Exo:
         self._user_agent = user_agent
         self._owns_session = session is None
         self.session = session or requests.Session()
-        self.retry = resolve_policy(session, self.base_url, retries, backoff_factor)
+        self._retry = resolve_policy(session, self.base_url, retries, backoff_factor)
         self._managers: dict[str, Manager] = {}
 
     @property
@@ -80,6 +80,17 @@ class Exo:
         self._timeout = value
         for manager in self._managers.values():
             manager.timeout = value
+
+    @property
+    def retry(self) -> Retry:
+        """The ``Retry`` policy; changing it also updates managers already in use."""
+        return self._retry
+
+    @retry.setter
+    def retry(self, value: Retry) -> None:
+        self._retry = value
+        for manager in self._managers.values():
+            manager.retry = value
 
     @property
     def user_agent(self) -> str | None:
@@ -101,7 +112,7 @@ class Exo:
                 base_url=self.base_url,
                 timeout=self._timeout,
                 session=self.session,
-                retries=self.retry,
+                retries=self._retry,
             )
         return self._managers[name]
 

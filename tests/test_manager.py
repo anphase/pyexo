@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 import requests
 import responses
+from urllib3.util.retry import Retry
 
 from exo import Exo
 from exo.exceptions import ExoException, ExoPaginationError
@@ -383,3 +384,14 @@ def test_iter_all_rejects_paging_params(credentials, base_url, key):
     manager = Manager("Debtor", credentials, base_url=base_url)
     with pytest.raises(ValueError, match=key):
         manager.iter_all({key: 5})
+
+
+@responses.activate
+def test_changing_retry_reaches_managers_already_in_use(credentials, base_url):
+    responses.get(f"{base_url}/Debtor", json=[])
+    exo = Exo(credentials, base_url=base_url)
+    exo.debtor.all()
+    policy = Retry(total=1)
+    exo.retry = policy
+    assert exo.debtor.retry is policy and exo.retry is policy
+    assert exo.stockitem.retry.total == 1  # and managers created later
