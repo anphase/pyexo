@@ -1,4 +1,4 @@
-"""List every debtor; iter_all fetches pages until a short page is returned."""
+"""List every debtor; iter_all fetches pages until an empty page is returned."""
 
 from exo import Exo
 

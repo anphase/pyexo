@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 from urllib3.exceptions import HTTPError as Urllib3Error
-from urllib3.exceptions import MaxRetryError
+from urllib3.exceptions import InvalidHeader, MaxRetryError
 from urllib3.util.retry import Retry
 
 from .auth import Credentials
@@ -49,7 +49,10 @@ def _sleep(retry: Retry, response: requests.Response | None) -> None:
     """Wait before the next attempt: Retry-After (capped) if sent, else the backoff."""
     wait = None
     if response is not None and retry.respect_retry_after_header:
-        wait = retry.get_retry_after(response.raw)
+        try:
+            wait = retry.get_retry_after(response.raw)
+        except InvalidHeader:  # an unparseable Retry-After falls back to the backoff
+            wait = None
     if wait is None:
         wait = retry.get_backoff_time()
     wait = min(wait, MAX_RETRY_AFTER)
@@ -184,7 +187,7 @@ class BaseManager:
                     cause = cause.reason
                 try:
                     retry = retry.increment(method, uri, error=cause or error)
-                except (MaxRetryError, Urllib3Error):
+                except Urllib3Error:  # includes MaxRetryError
                     raise error from None
                 _sleep(retry, None)
                 continue

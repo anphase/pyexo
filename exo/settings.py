@@ -36,7 +36,7 @@ def _warn_deprecated(message: str) -> None:
     ``Credentials()``, ``Exo()``, ``Manager()``), and ``DeprecationWarning`` is hidden by
     default unless it is attributed to ``__main__``.
     """
-    package = str(Path(__file__).parent)
+    package = str(Path(__file__).parent) + os.sep
     frame = sys._getframe()
     level = 1
     while frame.f_back is not None and frame.f_code.co_filename.startswith(package):

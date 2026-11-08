@@ -84,6 +84,14 @@ def test_retry_after_is_honoured_and_capped_at_sixty_seconds(credentials, server
     assert sleeps == [7, 60]
 
 
+def test_an_unparseable_retry_after_falls_back_to_the_backoff(credentials, server, sleeps):
+    Handler.script = [(503, {"Retry-After": "soon"})]
+    with Exo(credentials, base_url=server, backoff_factor=2) as exo:
+        assert get(exo) == []
+    assert len(Handler.seen) == 2
+    assert sleeps == []  # urllib3 waits nothing before the first retry
+
+
 def test_backoff_doubles_after_the_first_retry(credentials, server, sleeps):
     Handler.script = [(503, {})] * 3
     with Exo(credentials, base_url=server, backoff_factor=2) as exo:
