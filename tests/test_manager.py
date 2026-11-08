@@ -348,3 +348,38 @@ def test_standalone_manager_closes_only_a_session_it_created(credentials, base_u
     with Manager("Debtor", credentials, base_url=base_url, session=session) as manager:
         assert manager.session is session
     assert closed == ["own"]
+
+
+@responses.activate
+def test_iter_all_on_an_unpaged_endpoint_yields_the_listing_once(credentials, base_url):
+    responses.get(f"{base_url}/Currency", json=[{"id": 1}, {"id": 2}])
+    manager = Manager("Currency", credentials, base_url=base_url)
+    assert [c["id"] for c in manager.iter_all(page_size=100)] == [1, 2]
+    assert len(responses.calls) == 2  # page 1, then page 2 to discover it repeats
+
+
+@responses.activate
+def test_iter_all_raises_when_a_later_page_repeats(credentials, base_url):
+    pages = {"1": [{"id": 1}], "2": [{"id": 2}], "3": [{"id": 2}]}
+    responses.add_callback(
+        responses.GET,
+        f"{base_url}/Debtor",
+        callback=lambda req: (
+            200,
+            {"Content-Type": "application/json"},
+            json.dumps(pages[req.params["page"]]),
+        ),
+    )
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    got = []
+    with pytest.raises(ExoPaginationError, match="twice"):
+        for item in manager.iter_all(page_size=100):
+            got.append(item["id"])
+    assert got == [1, 2]
+
+
+@pytest.mark.parametrize("key", ["page", "pagesize"])
+def test_iter_all_rejects_paging_params(credentials, base_url, key):
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    with pytest.raises(ValueError, match=key):
+        manager.iter_all({key: 5})

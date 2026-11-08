@@ -88,19 +88,32 @@ class BaseManager:
         """Yield every object, fetching pages until one comes back empty.
 
         A server may return fewer than ``page_size`` items per page, so only an empty
-        page ends the iteration. Raises ``ExoPaginationError`` if a page repeats the
-        previous one (an endpoint that ignores ``page``) or if ``max_pages`` pages have
-        been fetched and more remain.
+        page ends the iteration, with one exception: an endpoint that ignores ``page``
+        returns the same listing again, and if the first page was short that listing was
+        complete, so iteration stops quietly. Any other repeated page (a full first page,
+        or a later page) raises ``ExoPaginationError``, as does exceeding ``max_pages``.
+        Use ``page_size``, not ``page`` or ``pagesize`` in ``params`` (``ValueError``).
         """
+        clashes = {"page", "pagesize"} & set(params or {})
+        if clashes:
+            raise ValueError(
+                f"do not pass {', '.join(sorted(clashes))} in params; iter_all sets them "
+                "(use its page_size argument)"
+            )
+        return self._pages(params or {}, page_size, max_pages)
+
+    def _pages(self, params: Params, page_size: int, max_pages: int | None) -> Iterator[Any]:
         previous: Any = None
         page = 1
         while True:
-            items = self.all({**(params or {}), "page": page, "pagesize": page_size})
+            items = self.all({**params, "page": page, "pagesize": page_size})
             if not items:
                 return
             if max_pages is not None and page > max_pages:
                 raise ExoPaginationError(f"more than max_pages={max_pages} pages of {self.name}")
             if items == previous:
+                if page == 2 and len(items) < page_size:
+                    return  # not a paged endpoint, and page 1 was the whole listing
                 raise ExoPaginationError(
                     f"{self.name} returned page {page} twice; it may ignore paging"
                 )

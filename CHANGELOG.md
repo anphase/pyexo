@@ -35,7 +35,9 @@ and the project uses [semantic versioning](https://semver.org/).
   (and the adapter set to not retry itself) so retries are not doubled.
 - `Manager.iter_all(params=None, page_size=100, max_pages=None)` yields items across pages until an empty
   page, so a server page cap below `page_size` does not end it early. It raises `ExoPaginationError` if a
-  page repeats the previous one or `max_pages` is exceeded. `all()` is still one page.
+  page repeats the previous one or `max_pages` is exceeded; the exception is an endpoint that ignores paging
+  and returns one short listing, which is yielded once. Passing `page` or `pagesize` in `params` raises
+  `ValueError`. `all()` is still one page.
 - `Exo.discovery()` returns the parsed `GET <base>/discovery` response.
 - Standard `KEY=VALUE` `.env` files (comments, `export`, quotes), and `EXO_BASE_URL`.
 - `timeout` and `user_agent` arguments on `Exo`. Setting `exo.timeout` or `exo.user_agent` later also updates
