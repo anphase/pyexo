@@ -6,16 +6,14 @@ import requests
 
 from .auth import Credentials
 from .basemanager import BaseManager
-from .names import LIST_OBJECTS, OBJECTS, PLURALS
+from .names import KNOWN, PLURALS
 from .session import make_session
 from .settings import get_base_url
-
-_KNOWN = frozenset((*OBJECTS, *LIST_OBJECTS))
 
 
 def _canonical(name: str) -> str:
     """Return the singular object name, warning if a deprecated plural was given."""
-    if name not in _KNOWN and name in PLURALS:
+    if name not in KNOWN and name in PLURALS:
         warnings.warn(
             f"the plural name {name!r} is deprecated; use {PLURALS[name]!r}",
             DeprecationWarning,
