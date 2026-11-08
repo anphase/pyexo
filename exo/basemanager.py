@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from typing import Any
 
 import requests
@@ -53,6 +54,16 @@ class BaseManager:
     def all(self, params: Params | None = None) -> Any:
         """List objects; pass ``{"page": n}`` etc. to page through results."""
         return self._request("get", self._url(), self._merged(params))
+
+    def iter_all(self, params: Params | None = None, page_size: int = 100) -> Iterator[Any]:
+        """Yield every object, fetching pages until one comes back short or empty."""
+        page = 1
+        while True:
+            items = self.all({**(params or {}), "page": page, "pagesize": page_size})
+            yield from items
+            if len(items) < page_size:
+                return
+            page += 1
 
     def get(self, id: str | int, params: Params | None = None) -> Any:
         return self._request("get", self._url(str(id)), self._merged(params))

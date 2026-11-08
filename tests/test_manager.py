@@ -160,3 +160,37 @@ def test_exo_closes_its_own_session(credentials, base_url):
     with Exo(credentials, base_url=base_url) as exo:
         exo.session.close = lambda: closed.append(True)  # type: ignore[method-assign]
     assert closed == [True]
+
+
+@responses.activate
+def test_iter_all_follows_pages_until_a_short_page(credentials, base_url):
+    pages = {"1": [{"id": 1}, {"id": 2}], "2": [{"id": 3}, {"id": 4}], "3": [{"id": 5}]}
+    responses.add_callback(
+        responses.GET,
+        f"{base_url}/Debtor",
+        callback=lambda req: (
+            200,
+            {"Content-Type": "application/json"},
+            json.dumps(pages[req.params["page"]]),
+        ),
+    )
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    assert [d["id"] for d in manager.iter_all(page_size=2)] == [1, 2, 3, 4, 5]
+    assert all(call.request.params["pagesize"] == "2" for call in responses.calls)
+
+
+@responses.activate
+def test_iter_all_stops_on_an_empty_page_and_keeps_params(credentials, base_url):
+    responses.get(f"{base_url}/Debtor", json=[{"id": 1}])
+    responses.get(f"{base_url}/Debtor", json=[])
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    assert [d["id"] for d in manager.iter_all({"filter": "x"}, page_size=1)] == [1]
+    assert len(responses.calls) == 2
+    assert responses.calls[0].request.params["filter"] == "x"
+
+
+@responses.activate
+def test_all_is_still_a_single_page(credentials, base_url):
+    responses.get(f"{base_url}/Debtor", json=[{"id": 1}] * 100)
+    assert len(Manager("Debtor", credentials, base_url=base_url).all()) == 100
+    assert len(responses.calls) == 1
