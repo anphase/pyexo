@@ -3,6 +3,11 @@
 All notable changes to pyexo. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- 2026-11-08: `docs/internal/architecture.md` with a diagram of the library's modules and its EXO API dependency.
+
 ## [0.3.0] - 2026-11-08
 
 ### Changed (breaking)
