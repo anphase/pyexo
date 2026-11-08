@@ -12,8 +12,8 @@ exo = Exo(Credentials())
 order = {
     "debtorid": 1,
     "status": 0,  # 0 = draft
-    "lines": [{"stockcode": "WIDGET-1", "quantity": 2}],
+    "lines": [{"stockcode": "WIDGET-1", "orderquantity": 2}],
 }
 
-exo.salesorder.save(order, validate=True)
-print(exo.salesorder.save(order))
+validated_order = exo.salesorder.save(order, validate=True)
+print(exo.salesorder.save(validated_order))
