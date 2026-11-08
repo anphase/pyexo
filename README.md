@@ -118,4 +118,4 @@ $ scripts/check.sh   # ruff, mypy --strict, pytest with coverage
 Tests run against mocked HTTP and hand-written fixtures; no EXO server is needed.
 
 ## Requirements
-Python 3.10 or newer and the `requests` package.
+Python 3.11 or newer and the `requests` package.
