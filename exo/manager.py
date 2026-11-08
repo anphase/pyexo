@@ -1,12 +1,28 @@
 from __future__ import annotations
 
+import warnings
+
 import requests
 
 from .auth import Credentials
 from .basemanager import BaseManager
+from .names import LIST_OBJECTS, OBJECTS, PLURALS
 from .session import make_session
 from .settings import get_base_url
-from .utils import is_plural, singular
+
+_KNOWN = frozenset((*OBJECTS, *LIST_OBJECTS))
+
+
+def _canonical(name: str) -> str:
+    """Return the singular object name, warning if a deprecated plural was given."""
+    if name not in _KNOWN and name in PLURALS:
+        warnings.warn(
+            f"the plural name {name!r} is deprecated; use {PLURALS[name]!r}",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return PLURALS[name]
+    return name
 
 
 class Manager(BaseManager):
@@ -28,5 +44,5 @@ class Manager(BaseManager):
         self.timeout = timeout
         self.session = session or make_session()
         self.extra_params = {"pagesize": "100"}
-        self.name = singular(name) if is_plural(name) else name
+        self.name = _canonical(name)
         self.user_agent = user_agent or f"pyexo/{__version__} {requests.utils.default_user_agent()}"

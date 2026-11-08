@@ -48,3 +48,14 @@ LIST_OBJECTS: tuple[str, ...] = (
     "Staff",
     "TaxRate",
 )
+
+
+def _plural_forms(name: str) -> tuple[str, ...]:
+    forms = (name + "s", name + "es")
+    return (*forms, name[:-1] + "ies") if name.endswith("y") else forms
+
+
+# Deprecated plural spellings ("Debtors", "Activities") mapped to the singular name.
+PLURALS: dict[str, str] = {
+    plural: name for name in (*OBJECTS, *LIST_OBJECTS) for plural in _plural_forms(name)
+}

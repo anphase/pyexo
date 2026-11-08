@@ -55,7 +55,9 @@ def test_search_url_encodes_the_query(credentials, base_url):
 @responses.activate
 def test_plural_names_are_singularised(credentials, base_url):
     responses.get(f"{base_url}/Debtor", json=[])
-    Manager("Debtors", credentials, base_url=base_url).all()
+    with pytest.warns(DeprecationWarning, match="use 'Debtor'"):
+        manager = Manager("Debtors", credentials, base_url=base_url)
+    manager.all()
     assert responses.calls[0].request.url.startswith(f"{base_url}/Debtor?")
 
 
@@ -237,3 +239,25 @@ def test_discovery_returns_parsed_json_from_the_base_url(credentials, base_url):
     assert exo.discovery() == {"version": "1", "resources": ["debtor"]}
     assert responses.calls[0].request.url == f"{base_url}/discovery"
     assert responses.calls[0].request.headers["x-myobapi-key"] == "key-123"
+
+
+@pytest.mark.parametrize(
+    ("plural", "singular"),
+    [
+        ("Activities", "Activity"),
+        ("Branches", "Branch"),
+        ("Currencies", "Currency"),
+        ("StockItems", "StockItem"),
+        ("Staffs", "Staff"),
+    ],
+)
+def test_plural_names_resolve_with_a_warning(credentials, base_url, plural, singular):
+    with pytest.warns(DeprecationWarning):
+        assert Manager(plural, credentials, base_url=base_url).name == singular
+
+
+def test_singular_names_do_not_warn(credentials, base_url, recwarn):
+    # CommonPhrases is itself a singular object name that merely looks plural.
+    assert Manager("CommonPhrases", credentials, base_url=base_url).name == "CommonPhrases"
+    assert Manager("Debtor", credentials, base_url=base_url).name == "Debtor"
+    assert not recwarn.list
