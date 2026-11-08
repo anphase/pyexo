@@ -22,7 +22,10 @@ from pathlib import Path
 AUTH_VARS = ("EXO_USERNAME", "EXO_PASSWORD", "EXO_API_KEY", "EXO_TOKEN")
 
 _SECTION = re.compile(r"^\s*\[[^\]]+\]\s*$", re.MULTILINE)
-_QUOTED = re.compile(r"""^(["'])(.*)\1\s*(?:\s#.*)?$""")
+# A quoted value: the quote closes at the first unescaped matching quote; only an
+# optional "# comment" may follow it.
+_DOUBLE_QUOTED = re.compile(r'^"((?:[^"\\]|\\.)*)"\s*(?:#.*)?$')
+_SINGLE_QUOTED = re.compile(r"^'((?:[^'\\]|\\.)*)'\s*(?:#.*)?$")
 _INLINE_COMMENT = re.compile(r"\s+#.*$")
 
 
@@ -42,6 +45,14 @@ def _warn_deprecated(message: str) -> None:
     warnings.warn(message, DeprecationWarning, stacklevel=level)
 
 
+def _parse_value(value: str) -> str:
+    for pattern, quote in ((_DOUBLE_QUOTED, '"'), (_SINGLE_QUOTED, "'")):
+        if quoted := pattern.match(value):
+            # Only \<quote> and \\ are escapes; other backslashes (C:\\temp) stay literal.
+            return re.sub(r"\\([" + quote + r"\\])", r"\1", quoted.group(1))
+    return _INLINE_COMMENT.sub("", value)
+
+
 def _parse_dotenv(text: str) -> dict[str, str]:
     """Parse ``KEY=VALUE`` lines: ``#`` comments, ``export`` prefix, quoted values."""
     values: dict[str, str] = {}
@@ -52,8 +63,7 @@ def _parse_dotenv(text: str) -> dict[str, str]:
         key, _, value = line.partition("=")
         key = key.strip().removeprefix("export ").strip()
         value = value.strip()
-        quoted = _QUOTED.match(value)
-        values[key] = quoted.group(2) if quoted else _INLINE_COMMENT.sub("", value)
+        values[key] = _parse_value(value)
     return values
 
 

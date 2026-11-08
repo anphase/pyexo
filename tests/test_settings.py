@@ -107,3 +107,26 @@ def test_legacy_ini_warning_is_attributed_to_the_caller(tmp_path):
     with pytest.warns(DeprecationWarning) as record:
         settings.get_base_url()
     assert record[0].filename == __file__
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ('EXO_PASSWORD="secret" # copied from "vault"', "secret"),
+        ("EXO_PASSWORD='secret' # copied from 'vault'", "secret"),
+        ('EXO_PASSWORD="it\'s # fine"', "it's # fine"),
+        ("EXO_PASSWORD='say \"hi\" # ok'", 'say "hi" # ok'),
+        ('EXO_PASSWORD="say \\"hi\\" # ok" # note "x"', 'say "hi" # ok'),
+        ("EXO_PASSWORD='it\\'s' # note 'x'", "it's"),
+        ('EXO_PASSWORD="back\\\\slash"', "back\\slash"),
+        ('EXO_PASSWORD="C:\\temp"', "C:\\temp"),
+        ('EXO_PASSWORD="  padded  "', "  padded  "),
+        ('EXO_PASSWORD=plain "quoted" # comment', 'plain "quoted"'),
+        ('EXO_PASSWORD="unterminated', '"unterminated'),
+        ('EXO_PASSWORD="a" b', '"a" b'),
+        ('EXO_PASSWORD=""', ""),
+    ],
+)
+def test_quoted_values_close_the_quote_before_stripping_a_comment(line, expected, tmp_path):
+    (tmp_path / ".env").write_text(line + "\n")
+    assert settings.get_auth()["EXO_PASSWORD"] == expected
