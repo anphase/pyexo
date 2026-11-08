@@ -194,3 +194,12 @@ def test_all_is_still_a_single_page(credentials, base_url):
     responses.get(f"{base_url}/Debtor", json=[{"id": 1}] * 100)
     assert len(Manager("Debtor", credentials, base_url=base_url).all()) == 100
     assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_discovery_returns_parsed_json_from_the_base_url(credentials, base_url):
+    responses.get(f"{base_url}/discovery", json={"version": "1", "resources": ["debtor"]})
+    exo = Exo(credentials, base_url=base_url)
+    assert exo.discovery() == {"version": "1", "resources": ["debtor"]}
+    assert responses.calls[0].request.url == f"{base_url}/discovery"
+    assert responses.calls[0].request.headers["x-myobapi-key"] == "key-123"

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import requests
 from urllib3.util.retry import Retry
 
@@ -67,6 +69,7 @@ class Exo:
         base_url = base_url or get_base_url()  # read .env once, not per manager
         self._owns_session = session is None
         self.session = session or make_session(retries, backoff_factor)
+        self._discovery = Manager("discovery", credentials, base_url=base_url, session=self.session)
         for name in self.OBJECT_LIST:
             setattr(
                 self,
@@ -75,6 +78,10 @@ class Exo:
             )
 
         self.listAPI = ExoList(credentials, base_url, self.session)
+
+    def discovery(self) -> Any:
+        """Return the parsed JSON from ``GET <base>/discovery`` (what the server exposes)."""
+        return self._discovery._request("get", self._discovery._url())
 
     def close(self) -> None:
         """Close the session, unless it was passed in (then it is yours to close)."""
