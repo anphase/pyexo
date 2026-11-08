@@ -318,3 +318,20 @@ def test_iter_all_within_max_pages_completes(credentials, base_url):
     responses.get(f"{base_url}/Debtor", json=[])
     manager = Manager("Debtor", credentials, base_url=base_url)
     assert [d["id"] for d in manager.iter_all(max_pages=1)] == [1]
+
+
+@responses.activate
+def test_changing_timeout_and_user_agent_reaches_managers_already_in_use(credentials, base_url):
+    responses.get(f"{base_url}/Debtor", json=[])
+    exo = Exo(credentials, base_url=base_url)
+    exo.debtor.all()
+    exo.timeout = 30
+    exo.user_agent = "mine/2"
+    exo.debtor.all()
+    assert exo.debtor.timeout == exo.stockitem.timeout == 30
+    assert responses.calls[1].request.headers["User-Agent"] == "mine/2"
+    assert responses.calls[1].request.req_kwargs["timeout"] == 30
+    exo.user_agent = None
+    exo.debtor.all()
+    assert responses.calls[2].request.headers["User-Agent"].startswith("pyexo/")
+    assert exo.user_agent is None and exo.timeout == 30

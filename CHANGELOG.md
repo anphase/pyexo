@@ -29,7 +29,8 @@ and the project uses [semantic versioning](https://semver.org/).
 - `Manager.iter_all(params=None, page_size=100)` yields items across pages; `all()` is still one page.
 - `Exo.discovery()` returns the parsed `GET <base>/discovery` response.
 - Standard `KEY=VALUE` `.env` files (comments, `export`, quotes), and `EXO_BASE_URL`.
-- `exo.timeout` and `user_agent` arguments on `Exo`, passed to its managers.
+- `timeout` and `user_agent` arguments on `Exo`. Setting `exo.timeout` or `exo.user_agent` later also updates
+  managers already in use.
 
 ### Deprecated
 - Plural object names given to `Manager` (`"Debtors"`, `"Activities"`) emit `DeprecationWarning`; use the

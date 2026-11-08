@@ -7,7 +7,7 @@ import requests
 from urllib3.util.retry import Retry
 
 from .auth import Credentials
-from .manager import Manager
+from .manager import Manager, default_user_agent
 from .names import LIST_OBJECTS, OBJECTS
 from .session import DEFAULT_BACKOFF, DEFAULT_RETRIES, make_session
 from .settings import get_base_url
@@ -57,20 +57,42 @@ class Exo:
     ) -> None:
         self.credentials = credentials or Credentials()
         self.base_url = (base_url or get_base_url()).rstrip("/")
-        self.timeout = timeout
-        self.user_agent = user_agent
+        self._timeout = timeout
+        self._user_agent = user_agent
         self._owns_session = session is None
         self.session = session or make_session(retries, backoff_factor)
         self._managers: dict[str, Manager] = {}
+
+    @property
+    def timeout(self) -> float:
+        """Request timeout in seconds; changing it also updates managers already in use."""
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, value: float) -> None:
+        self._timeout = value
+        for manager in self._managers.values():
+            manager.timeout = value
+
+    @property
+    def user_agent(self) -> str | None:
+        """The User-Agent header (None for the default); changes reach managers in use."""
+        return self._user_agent
+
+    @user_agent.setter
+    def user_agent(self, value: str | None) -> None:
+        self._user_agent = value
+        for manager in self._managers.values():
+            manager.user_agent = value or default_user_agent()
 
     def _manager(self, name: str) -> Manager:
         if name not in self._managers:
             self._managers[name] = Manager(
                 name,
                 self.credentials,
-                user_agent=self.user_agent,
+                user_agent=self._user_agent,
                 base_url=self.base_url,
-                timeout=self.timeout,
+                timeout=self._timeout,
                 session=self.session,
             )
         return self._managers[name]

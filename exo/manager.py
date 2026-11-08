@@ -23,6 +23,12 @@ def _canonical(name: str) -> str:
     return name
 
 
+def default_user_agent() -> str:
+    from . import __version__
+
+    return f"pyexo/{__version__} {requests.utils.default_user_agent()}"
+
+
 class Manager(BaseManager):
     def __init__(
         self,
@@ -33,8 +39,6 @@ class Manager(BaseManager):
         timeout: float = 5,
         session: requests.Session | None = None,
     ) -> None:
-        from . import __version__
-
         if not name:
             raise ValueError("name must not be empty")
         self.credentials = credentials
@@ -43,4 +47,4 @@ class Manager(BaseManager):
         self.session = session or make_session()
         self.extra_params = {"pagesize": "100"}
         self.name = _canonical(name)
-        self.user_agent = user_agent or f"pyexo/{__version__} {requests.utils.default_user_agent()}"
+        self.user_agent = user_agent or default_user_agent()
