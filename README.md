@@ -17,7 +17,7 @@ for how to get these from the MYOB EXO Developer pages:[MYOB EXO API page](http:
 #### Environment variables
 
 For convenience you can setup the following environment variables:
-EXO_USERNAME, EXO_PASSWORD, EXO_API_KEY, MYOB_EXO_TOKEN. For example, in Linux you could add these 
+EXO_USERNAME, EXO_PASSWORD, EXO_API_KEY, EXO_TOKEN. For example, in Linux you could add these 
 variables into ~./bashrc and for MacOS into ~/.bash_profile as shown below. You can also specify the environment 
 variables in Windows. 
 Note that you will need to reload the terminal for these to come into effect e.g using 
@@ -27,8 +27,8 @@ $ . ~/.bashrc
 or by restarting the terminal.
 
 ```shell script
-$ export MYOB_EXO_USERNAME=demo
-$ export MYOB_EXO_PASSWORD=DEMO
+$ export EXO_USERNAME=demo
+$ export EXO_PASSWORD=DEMO
 $ export EXO_API_KEY=ABCta353c5R6YXRvcjo=
 $ export EXO_TOKEN=123AA353c5R6YXRsTAQ18*%
 ```
