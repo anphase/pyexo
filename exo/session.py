@@ -1,10 +1,15 @@
-"""Construction of the ``requests.Session`` shared by a client's managers."""
+"""The retry policy shared by a client's managers.
+
+pyexo's own request loop (``BaseManager._send``) owns every retry: the session's
+adapters never retry, so one ``urllib3`` ``Retry`` policy is the single budget for
+connect errors, read errors (including a body that drops mid-download) and
+retryable statuses.
+"""
 
 from __future__ import annotations
 
 import requests
 from requests.adapters import HTTPAdapter
-from urllib3.response import BaseHTTPResponse
 from urllib3.util.retry import Retry
 
 RETRY_STATUSES = (429, 502, 503, 504)
@@ -13,40 +18,45 @@ DEFAULT_BACKOFF = 0.5
 MAX_RETRY_AFTER = 60.0  # seconds; a larger Retry-After is clamped to this
 
 
-class CappedRetry(Retry):
-    """A ``Retry`` that never waits longer than ``MAX_RETRY_AFTER`` for ``Retry-After``."""
-
-    def get_retry_after(self, response: BaseHTTPResponse) -> float | None:
-        wait = super().get_retry_after(response)
-        return None if wait is None else min(wait, MAX_RETRY_AFTER)
-
-
-def make_session(
+def make_policy(
     retries: int | Retry | None = DEFAULT_RETRIES, backoff_factor: float = DEFAULT_BACKOFF
-) -> requests.Session:
-    """Return a session that retries 429, 502, 503 and 504 responses.
+) -> Retry:
+    """Return the retry policy for ``retries`` (a count, ``0``/``None`` for none, or a Retry).
 
-    ``retries`` is the number of retries (``0`` or ``None`` turns retrying off) or a
-    ready-made ``urllib3.util.retry.Retry`` for full control. Waits grow exponentially
-    from ``backoff_factor`` seconds, and a ``Retry-After`` header is honoured (up to 60
-    seconds). Idempotent methods (GET, PUT, DELETE) also retry connect and read errors; a
-    ``POST`` is never retried, so it is never sent twice.
+    A count gives exponential backoff from ``backoff_factor`` seconds that honours
+    ``Retry-After`` for 429, 502, 503 and 504. The default ``allowed_methods`` keep
+    POST from being retried after the server may have received it. A ``Retry`` you
+    pass is copied and used as is, so its ``total``, ``connect``, ``read``, ``status``,
+    ``allowed_methods``, ``status_forcelist`` and backoff settings all apply.
     """
-    session = requests.Session()
     if isinstance(retries, Retry):
-        # Never raise RetryError: the last response goes through the ExoException mapping.
-        policy: Retry = retries.new(raise_on_status=False)
-    elif retries:
-        policy = CappedRetry(
+        return retries.new()
+    if retries:
+        return Retry(
             total=retries,
             backoff_factor=backoff_factor,
             status_forcelist=RETRY_STATUSES,
             respect_retry_after_header=True,
-            raise_on_status=False,  # hand the last response to the normal error mapping
         )
-    else:
-        return session
-    adapter = HTTPAdapter(max_retries=policy)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-    return session
+    return Retry(0)
+
+
+def resolve_policy(
+    session: requests.Session | None,
+    url: str,
+    retries: int | Retry | None = DEFAULT_RETRIES,
+    backoff_factor: float = DEFAULT_BACKOFF,
+) -> Retry:
+    """Pick the policy, taking over a ``session`` adapter's own retries if it has any.
+
+    pyexo does the retrying, so an adapter policy found on a session you pass in is
+    moved into the returned policy and the adapter is set to never retry; otherwise
+    its retries would add to ours.
+    """
+    adapter = session.get_adapter(url) if session is not None else None
+    if isinstance(adapter, HTTPAdapter):
+        own = adapter.max_retries
+        if own.total != 0 or own.read is not False:  # not requests' no-retry default
+            adapter.max_retries = Retry(0, read=False)
+            return own.new()
+    return make_policy(retries, backoff_factor)

@@ -6,7 +6,8 @@ from collections.abc import Iterator
 from typing import Any
 
 import requests
-from requests.adapters import HTTPAdapter
+from urllib3.exceptions import HTTPError as Urllib3Error
+from urllib3.exceptions import MaxRetryError
 from urllib3.util.retry import Retry
 
 from .auth import Credentials
@@ -22,6 +23,7 @@ from .exceptions import (
     ExoTimeout,
     ExoUnauthorised,
 )
+from .session import MAX_RETRY_AFTER
 
 Params = dict[str, Any]
 Body = dict[str, Any] | list[Any] | str | bytes | None
@@ -36,12 +38,23 @@ ERRORS: dict[int, type[ExoException]] = {
     500: ExoInternalError,
 }
 SUCCESS = (200, 201, 202, 204)
-BODY_RETRY_METHODS = ("get", "put", "delete")  # never POST: it could be applied twice
-BODY_ERRORS = (
+RETRYABLE_ERRORS = (
     requests.exceptions.ChunkedEncodingError,
     requests.exceptions.ConnectionError,
-    requests.exceptions.ReadTimeout,
+    requests.exceptions.Timeout,
 )
+
+
+def _sleep(retry: Retry, response: requests.Response | None) -> None:
+    """Wait before the next attempt: Retry-After (capped) if sent, else the backoff."""
+    wait = None
+    if response is not None and retry.respect_retry_after_header:
+        wait = retry.get_retry_after(response.raw)
+    if wait is None:
+        wait = retry.get_backoff_time()
+    wait = min(wait, MAX_RETRY_AFTER)
+    if wait > 0:
+        time.sleep(wait)
 
 
 class BaseManager:
@@ -53,6 +66,7 @@ class BaseManager:
     user_agent: str
     timeout: float
     session: requests.Session
+    retry: Retry
     extra_params: Params
 
     def _url(self, *parts: str) -> str:
@@ -139,36 +153,49 @@ class BaseManager:
     def _send(
         self, method: str, uri: str, body: Body, headers: dict[str, str], params: Params | None
     ) -> requests.Response:
-        """Send the request and read the whole body, retrying a failed body download.
+        """Send the request, retrying under ``self.retry``, and read the whole body.
 
-        requests reads the body outside urllib3's retry loop, so a connection that drops
-        after the headers arrive would otherwise fail on the first attempt. The retry
-        count and backoff come from the session adapter's ``Retry`` policy; POST is
-        never retried.
+        One policy covers connect errors, read errors (a connection that drops while the
+        body downloads included) and retryable statuses, so the retry budget is shared
+        and ``total``/``connect``/``read``/``status``, ``allowed_methods``,
+        ``status_forcelist`` and backoff are all honoured. When retries run out a
+        transport error is re-raised and a retryable status response is returned for the
+        normal error mapping.
         """
-        adapter = self.session.get_adapter(uri)
-        policy = adapter.max_retries if isinstance(adapter, HTTPAdapter) else Retry(0)
-        retries = int(policy.total or 0) if method.lower() in BODY_RETRY_METHODS else 0
-        attempt = 0
+        retry = self.retry
         while True:
-            response = self.session.request(
-                method,
-                uri,
-                data=body,
-                headers=headers,
-                params=params,
-                timeout=self.timeout,
-                stream=True,
-            )
+            response = None
             try:
+                response = self.session.request(
+                    method,
+                    uri,
+                    data=body,
+                    headers=headers,
+                    params=params,
+                    timeout=self.timeout,
+                    stream=True,
+                )
                 response.content  # noqa: B018 - read now so a failure is caught here
-            except BODY_ERRORS:
+            except RETRYABLE_ERRORS as error:
+                if response is not None:
+                    response.close()
+                cause = error.args[0] if error.args else None
+                if isinstance(cause, MaxRetryError):
+                    cause = cause.reason
+                try:
+                    retry = retry.increment(method, uri, error=cause or error)
+                except (MaxRetryError, Urllib3Error):
+                    raise error from None
+                _sleep(retry, None)
+                continue
+            has_retry_after = bool(response.headers.get("Retry-After"))
+            if retry.is_retry(method, response.status_code, has_retry_after):
+                try:
+                    next_retry = retry.increment(method, uri, response=response.raw)
+                except MaxRetryError:
+                    return response
                 response.close()
-                if attempt >= retries:
-                    raise
-                attempt += 1
-                # Same schedule as urllib3: no wait before the first retry, then doubling.
-                if attempt > 1:
-                    time.sleep(min(policy.backoff_max, policy.backoff_factor * 2 ** (attempt - 1)))
+                _sleep(next_retry, response)
+                retry = next_retry
                 continue
             return response

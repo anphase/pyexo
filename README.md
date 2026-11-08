@@ -106,16 +106,21 @@ exo.discovery()                               # GET <base>/discovery, parsed JSO
 All managers of one `Exo` share a single `requests.Session`, so connections are reused. Pass your own with
 `Exo(credentials, session=my_session)`; you then close it yourself.
 
-Responses 429, 502, 503 and 504 are retried up to 3 times with exponential backoff that honours `Retry-After`
-(a wait longer than 60 seconds is clamped to 60). `GET`, `PUT` and `DELETE` also retry connect and read errors, including a drop while the body downloads
-(each retry waits for the timeout again, so one call can take several times `timeout`). `POST` is never retried,
-so a write is never sent twice. Tune or disable it on the session `Exo` creates:
+pyexo's own request loop does all retrying, under one policy with one budget: responses 429, 502, 503 and 504,
+connect errors and read errors (including a connection that drops while the body downloads) together are retried
+up to 3 times, with exponential backoff that honours `Retry-After` (a wait longer than 60 seconds is clamped to 60).
+Each retry waits for the timeout again, so one call can take several times `timeout`. `POST` is never retried after the
+server may have received it, because the default policy only retries idempotent methods. Tune or disable it:
 
 ```python
 Exo(credentials, retries=5, backoff_factor=1.0)
 Exo(credentials, retries=0)                        # off
 Exo(credentials, retries=urllib3.util.Retry(...))  # full control
 ```
+
+A `Retry` is used as given, so its `total`, `connect`, `read`, `status`, `allowed_methods`, `status_forcelist` and
+backoff settings all apply. If the session you pass in already has an adapter retry policy, that policy is used
+and the adapter is switched to not retry on its own, so retries are never doubled.
 
 The base URL defaults to the configuration above. For the cloud (LiveRelay) service pass it explicitly:
 `Exo(credentials, base_url="https://exo.api.myob.com")`.

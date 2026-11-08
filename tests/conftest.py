@@ -31,3 +31,11 @@ def credentials() -> Credentials:
 @pytest.fixture
 def base_url() -> str:
     return BASE_URL
+
+
+@pytest.fixture(autouse=True)
+def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Record retry waits instead of sleeping, so tests are fast and can assert them."""
+    waits: list[float] = []
+    monkeypatch.setattr("exo.basemanager.time.sleep", waits.append)
+    return waits

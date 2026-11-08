@@ -3,11 +3,12 @@ from __future__ import annotations
 import warnings
 
 import requests
+from urllib3.util.retry import Retry
 
 from .auth import Credentials
 from .basemanager import BaseManager
 from .names import KNOWN, PLURALS
-from .session import make_session
+from .session import DEFAULT_BACKOFF, DEFAULT_RETRIES, resolve_policy
 from .settings import get_base_url
 
 
@@ -38,6 +39,8 @@ class Manager(BaseManager):
         base_url: str | None = None,
         timeout: float = 5,
         session: requests.Session | None = None,
+        retries: int | Retry | None = DEFAULT_RETRIES,
+        backoff_factor: float = DEFAULT_BACKOFF,
     ) -> None:
         if not name:
             raise ValueError("name must not be empty")
@@ -45,7 +48,8 @@ class Manager(BaseManager):
         self.base_url = (base_url or get_base_url()).rstrip("/")
         self.timeout = timeout
         self._owns_session = session is None
-        self.session = session or make_session()
+        self.session = session or requests.Session()
+        self.retry = resolve_policy(session, self.base_url, retries, backoff_factor)
         self.extra_params = {"pagesize": "100"}
         self.name = _canonical(name)
         self.user_agent = user_agent or default_user_agent()

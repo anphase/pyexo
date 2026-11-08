@@ -26,10 +26,16 @@ and the project uses [semantic versioning](https://semver.org/).
 ### Added
 - `with Exo(...) as exo:` and `Exo.close()`, and the same on a standalone `Manager` (which closes only a
   session it created itself); pass `session=` to supply your own `requests.Session`.
-- Bounded retries (`retries=3`, `backoff_factor=0.5`) for 429, 502, 503 and 504 with exponential backoff
-  and `Retry-After` (clamped to 60 seconds). `GET`, `PUT` and `DELETE` also retry connect and read errors,
-  including a connection that drops while the response body downloads; `POST` is never retried. Set `retries=0` to turn them off, or pass a `urllib3` `Retry`.
-- `Manager.iter_all(params=None, page_size=100)` yields items across pages; `all()` is still one page.
+- Bounded retries (`retries=3`, `backoff_factor=0.5`) done by pyexo's own request loop under one `urllib3`
+  `Retry` policy, so 429/502/503/504 responses, connect errors and read errors (including a connection that
+  drops while the body downloads) share one budget. Exponential backoff honours `Retry-After`, clamped to
+  60 seconds. `POST` is never retried after the server may have received it. Set `retries=0` to turn them off,
+  or pass a `urllib3` `Retry`: its `total`, `connect`, `read`, `status`, `allowed_methods`, `status_forcelist`
+  and backoff settings are all honoured. A retry policy on the adapter of a session you pass in is taken over
+  (and the adapter set to not retry itself) so retries are not doubled.
+- `Manager.iter_all(params=None, page_size=100, max_pages=None)` yields items across pages until an empty
+  page, so a server page cap below `page_size` does not end it early. It raises `ExoPaginationError` if a
+  page repeats the previous one or `max_pages` is exceeded. `all()` is still one page.
 - `Exo.discovery()` returns the parsed `GET <base>/discovery` response.
 - Standard `KEY=VALUE` `.env` files (comments, `export`, quotes), and `EXO_BASE_URL`.
 - `timeout` and `user_agent` arguments on `Exo`. Setting `exo.timeout` or `exo.user_agent` later also updates

@@ -9,7 +9,7 @@ from urllib3.util.retry import Retry
 from .auth import Credentials
 from .manager import Manager, default_user_agent
 from .names import LIST_OBJECTS, OBJECTS
-from .session import DEFAULT_BACKOFF, DEFAULT_RETRIES, make_session
+from .session import DEFAULT_BACKOFF, DEFAULT_RETRIES, resolve_policy
 from .settings import get_base_url
 
 _LIST_KNOWN = {name.lower(): name for name in LIST_OBJECTS}
@@ -36,9 +36,15 @@ class Exo:
     ``session`` to supply your own; otherwise one is created and closed by
     ``close()`` or by leaving a ``with`` block.
 
-    Responses 429, 502, 503 and 504 are retried up to ``retries`` times with
-    exponential backoff (``0`` or ``None`` turns this off). Retrying applies to the
-    session created here; a session you pass in keeps its own adapters.
+    Retries are done by pyexo's own request loop under one ``urllib3`` ``Retry`` policy
+    (``self.retry``): 429, 502, 503 and 504 responses, connect errors and read errors
+    (including a body that drops mid-download) share a single budget of ``retries``
+    (default 3) with exponential backoff and ``Retry-After`` (capped at 60 seconds).
+    ``retries=0`` or ``None`` turns them off, and a ``Retry`` instance is used as is
+    (``total``, ``connect``, ``read``, ``allowed_methods``, ``status_forcelist`` and
+    backoff all apply). The default ``allowed_methods`` keep POST from being retried
+    after the server may have received it. If the ``session`` you pass in has an adapter
+    retry policy, it becomes the policy and the adapter is set to not retry itself.
     """
 
     OBJECT_LIST = OBJECTS
@@ -60,7 +66,8 @@ class Exo:
         self._timeout = timeout
         self._user_agent = user_agent
         self._owns_session = session is None
-        self.session = session or make_session(retries, backoff_factor)
+        self.session = session or requests.Session()
+        self.retry = resolve_policy(session, self.base_url, retries, backoff_factor)
         self._managers: dict[str, Manager] = {}
 
     @property
@@ -94,6 +101,7 @@ class Exo:
                 base_url=self.base_url,
                 timeout=self._timeout,
                 session=self.session,
+                retries=self.retry,
             )
         return self._managers[name]
 

@@ -1,14 +1,15 @@
+import socket
 import threading
-import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 import requests
+from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from exo import Exo
 from exo.exceptions import ExoExceptionUnknown
-from exo.session import make_session
+from exo.session import make_policy, resolve_policy
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -35,7 +36,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    do_GET = do_POST = _respond
+    do_GET = do_POST = do_PUT = do_DELETE = _respond
 
     def log_message(self, *args: object) -> None:
         pass
@@ -45,90 +46,82 @@ class Handler(BaseHTTPRequestHandler):
 def server():
     Handler.script, Handler.seen = [], []
     httpd = HTTPServer(("127.0.0.1", 0), Handler)
-    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=httpd.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+    )
     thread.start()
     yield f"http://127.0.0.1:{httpd.server_port}"
     httpd.shutdown()
     httpd.server_close()
 
 
+TRUNCATED = (200, {"X-Truncate": "1"})
+
+
+def get(exo):
+    return exo.debtor.all()
+
+
 def test_transient_statuses_are_retried_until_success(credentials, server):
     Handler.script = [(429, {}), (502, {}), (503, {})]
-    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
-        assert exo.debtor.all() == []
+    with Exo(credentials, base_url=server) as exo:
+        assert get(exo) == []
     assert len(Handler.seen) == 4
 
 
 def test_retries_are_bounded_and_the_last_response_raises(credentials, server):
     Handler.script = [(503, {})] * 10
-    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
+    with Exo(credentials, base_url=server) as exo:
         with pytest.raises(ExoExceptionUnknown):
-            exo.debtor.all()
+            get(exo)
     assert len(Handler.seen) == 4  # the first try plus three retries
 
 
-def test_retry_after_is_honoured(credentials, server):
-    Handler.script = [(429, {"Retry-After": "1"})]
-    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
-        started = time.monotonic()
-        exo.debtor.all()
-    assert time.monotonic() - started >= 0.9
+def test_retry_after_is_honoured_and_capped_at_sixty_seconds(credentials, server, sleeps):
+    Handler.script = [(429, {"Retry-After": "7"}), (503, {"Retry-After": "3600"})]
+    with Exo(credentials, base_url=server) as exo:
+        get(exo)
+    assert sleeps == [7, 60]
+
+
+def test_backoff_doubles_after_the_first_retry(credentials, server, sleeps):
+    Handler.script = [(503, {})] * 3
+    with Exo(credentials, base_url=server, backoff_factor=2) as exo:
+        get(exo)
+    assert sleeps == [4, 8]  # urllib3's schedule: no wait before the first retry
 
 
 def test_retries_can_be_turned_off(credentials, server):
     Handler.script = [(503, {})]
     with Exo(credentials, base_url=server, retries=0) as exo:
         with pytest.raises(ExoExceptionUnknown):
-            exo.debtor.all()
+            get(exo)
     assert len(Handler.seen) == 1
 
 
-def test_posts_are_not_retried(credentials, server):
-    Handler.script = [(503, {})]
-    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
-        with pytest.raises(ExoExceptionUnknown):
-            exo.salesorder.save({"a": 1})
-    assert Handler.seen == ["POST"]
+def test_posts_are_not_retried_on_a_status_or_a_dropped_body(credentials, server):
+    with Exo(credentials, base_url=server) as exo:
+        for script in ([(503, {})], [TRUNCATED]):
+            Handler.script, Handler.seen = list(script), []
+            with pytest.raises((ExoExceptionUnknown, requests.exceptions.RequestException)):
+                exo.salesorder.save({"a": 1})
+            assert Handler.seen == ["POST"]
 
 
-def test_a_retry_policy_can_be_passed():
-    policy = Retry(total=7)
-    session = make_session(policy)
-    retry = session.get_adapter("https://exo.test").max_retries
-    assert retry.total == 7 and retry.raise_on_status is False
-
-
-def test_default_policy_covers_the_documented_statuses():
-    retry = make_session().get_adapter("https://exo.test").max_retries
-    assert retry.total == 3
-    assert set(retry.status_forcelist) == {429, 502, 503, 504}
-    assert retry.respect_retry_after_header
-
-
-def test_retry_after_is_capped_at_sixty_seconds():
-    from urllib3.response import HTTPResponse
-
-    retry = make_session().get_adapter("https://exo.test").max_retries
-    assert retry.get_retry_after(HTTPResponse(headers={"Retry-After": "3600"})) == 60
-    assert retry.get_retry_after(HTTPResponse(headers={"Retry-After": "7"})) == 7
-    assert retry.get_retry_after(HTTPResponse()) is None
-
-
-TRUNCATED = (200, {"X-Truncate": "1"})
-
-
-def test_a_body_that_drops_mid_download_is_retried_for_get(credentials, server):
+@pytest.mark.parametrize("verb", ["all", "put", "delete"])
+def test_a_body_that_drops_mid_download_is_retried(credentials, server, verb):
     Handler.script = [TRUNCATED, TRUNCATED]
-    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
-        assert exo.debtor.all() == []
-    assert Handler.seen == ["GET", "GET", "GET"]
+    with Exo(credentials, base_url=server) as exo:
+        args = {"all": (), "put": ({"a": 1},), "delete": (1,)}[verb]
+        getattr(exo.debtor, verb)(*args)
+    assert len(Handler.seen) == 3
 
 
 def test_body_retries_are_bounded(credentials, server):
     Handler.script = [TRUNCATED] * 10
-    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
+    with Exo(credentials, base_url=server) as exo:
         with pytest.raises(requests.exceptions.RequestException):
-            exo.debtor.all()
+            get(exo)
     assert len(Handler.seen) == 4
 
 
@@ -136,22 +129,100 @@ def test_body_retries_can_be_turned_off(credentials, server):
     Handler.script = [TRUNCATED]
     with Exo(credentials, base_url=server, retries=0) as exo:
         with pytest.raises(requests.exceptions.RequestException):
-            exo.debtor.all()
+            get(exo)
     assert len(Handler.seen) == 1
 
 
-def test_a_post_body_that_drops_is_not_retried(credentials, server):
-    Handler.script = [TRUNCATED]
-    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
+def test_one_budget_covers_statuses_and_dropped_bodies(credentials, server):
+    # retries=1 must never turn into a status budget plus a separate body budget.
+    Handler.script = [(503, {}), TRUNCATED, (503, {}), (200, {})]
+    with Exo(credentials, base_url=server, retries=1) as exo:
         with pytest.raises(requests.exceptions.RequestException):
-            exo.salesorder.save({"a": 1})
-    assert Handler.seen == ["POST"]
+            get(exo)
+    assert len(Handler.seen) == 2
 
 
-def test_body_retry_backoff_doubles_after_the_first_retry(credentials, server, monkeypatch):
-    sleeps = []
-    monkeypatch.setattr("exo.basemanager.time.sleep", sleeps.append)
-    Handler.script = [TRUNCATED] * 3
-    with Exo(credentials, base_url=server, backoff_factor=2) as exo:
-        assert exo.debtor.all() == []
-    assert sleeps == [4, 8]
+@pytest.mark.parametrize("retries", [1, 2, 3])
+def test_mixed_failures_never_exceed_the_budget(credentials, server, retries):
+    Handler.script = [(503, {}), TRUNCATED, (429, {}), TRUNCATED, (504, {})] * 3
+    with Exo(credentials, base_url=server, retries=retries) as exo:
+        with pytest.raises((ExoExceptionUnknown, requests.exceptions.RequestException)):
+            get(exo)
+    assert len(Handler.seen) == retries + 1
+
+
+def test_a_retry_with_read_zero_gives_no_body_retry(credentials, server):
+    Handler.script = [TRUNCATED]
+    with Exo(credentials, base_url=server, retries=Retry(total=2, read=0)) as exo:
+        with pytest.raises(requests.exceptions.RequestException):
+            get(exo)
+    assert len(Handler.seen) == 1
+
+
+def test_allowed_methods_gate_every_kind_of_retry(credentials, server):
+    policy = Retry(total=3, status_forcelist=[503], allowed_methods={"PUT"})
+    with Exo(credentials, base_url=server, retries=policy) as exo:
+        for script in ([(503, {})], [TRUNCATED]):
+            Handler.script, Handler.seen = list(script), []
+            with pytest.raises((ExoExceptionUnknown, requests.exceptions.RequestException)):
+                get(exo)
+            assert len(Handler.seen) == 1
+        Handler.script, Handler.seen = [TRUNCATED], []
+        exo.debtor.put({"a": 1})
+        assert len(Handler.seen) == 2
+
+
+def test_a_retry_with_only_read_set_retries_the_body(credentials, server):
+    Handler.script = [TRUNCATED, TRUNCATED]
+    with Exo(credentials, base_url=server, retries=Retry(total=None, read=2)) as exo:
+        assert get(exo) == []
+    assert len(Handler.seen) == 3
+    Handler.script, Handler.seen = [TRUNCATED] * 3, []
+    with Exo(credentials, base_url=server, retries=Retry(total=None, read=2)) as exo:
+        with pytest.raises(requests.exceptions.RequestException):
+            get(exo)
+    assert len(Handler.seen) == 3
+
+
+def test_a_custom_retry_with_a_status_forcelist_ends_in_an_exo_error(credentials, server):
+    Handler.script = [(503, {})] * 10
+    policy = Retry(total=2, status_forcelist=[503])
+    with Exo(credentials, base_url=server, retries=policy) as exo:
+        with pytest.raises(ExoExceptionUnknown):
+            get(exo)
+    assert len(Handler.seen) == 3
+
+
+def test_connect_errors_are_retried_then_raised(credentials, sleeps):
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    with Exo(credentials, base_url=f"http://127.0.0.1:{port}", backoff_factor=1, retries=2) as exo:
+        with pytest.raises(requests.exceptions.ConnectionError):
+            get(exo)
+    assert sleeps == [2]  # two retries: none before the first, then 1 * 2
+
+
+def test_a_session_adapter_policy_is_taken_over(credentials, server):
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=Retry(total=2, status_forcelist=[503]))
+    session.mount("http://", adapter)
+    Handler.script = [(503, {})] * 10
+    with Exo(credentials, base_url=server, session=session) as exo:
+        with pytest.raises(ExoExceptionUnknown):
+            get(exo)
+    assert len(Handler.seen) == 3  # the adapter itself no longer retries
+    assert adapter.max_retries.total == 0
+
+
+def test_a_plain_session_gets_the_default_policy():
+    policy = resolve_policy(requests.Session(), "http://exo.test")
+    assert policy.total == 3 and set(policy.status_forcelist) == {429, 502, 503, 504}
+    assert policy.respect_retry_after_header
+
+
+def test_policies_are_copied():
+    original = Retry(total=7)
+    assert make_policy(original) is not original
+    assert make_policy(original).total == 7
+    assert make_policy(0).total == 0 and make_policy(None).total == 0
