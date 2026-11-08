@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import requests
+from urllib3.util.retry import Retry
 
 from .auth import Credentials
 from .manager import Manager
+from .session import DEFAULT_BACKOFF, DEFAULT_RETRIES, make_session
 from .settings import get_base_url
 
 
@@ -47,6 +49,8 @@ class Exo:
         credentials: Credentials,
         base_url: str | None = None,
         session: requests.Session | None = None,
+        retries: int | Retry | None = DEFAULT_RETRIES,
+        backoff_factor: float = DEFAULT_BACKOFF,
     ) -> None:
         """Iterate through the list of objects we support, for
         each of them create an attribute on our self that is
@@ -55,10 +59,14 @@ class Exo:
 
         All managers share one ``requests.Session`` (connection reuse). Pass
         ``session`` to supply your own; otherwise one is created and closed by
-        ``close()`` or by leaving a ``with`` block."""
+        ``close()`` or by leaving a ``with`` block.
+
+        Responses 429, 502, 503 and 504 are retried up to ``retries`` times with
+        exponential backoff (``0`` or ``None`` turns this off). Retrying applies
+        to the session created here; a session you pass in keeps its own adapters."""
         base_url = base_url or get_base_url()  # read .env once, not per manager
         self._owns_session = session is None
-        self.session = session or requests.Session()
+        self.session = session or make_session(retries, backoff_factor)
         for name in self.OBJECT_LIST:
             setattr(
                 self,
