@@ -1,10 +1,13 @@
+from __future__ import annotations
+
+from .auth import Credentials
 from .manager import Manager
 
 
-class Exo(object):
+class Exo:
     """An ORM-like interface to the MYOB EXO API"""
 
-    OBJECT_LIST = (
+    OBJECT_LIST: tuple[str, ...] = (
         "Activity",
         "ActivityStatus",
         "ActivityType",
@@ -36,21 +39,25 @@ class Exo(object):
         "Token",
     )
 
-    def __init__(self, auth_headers):
+    def __init__(self, credentials: Credentials, base_url: str | None = None) -> None:
         """Iterate through the list of objects we support, for
         each of them create an attribute on our self that is
         the lowercase name of the object and attach it to an
         instance of a Manager object to operate on it"""
         for name in self.OBJECT_LIST:
-            setattr(self, name.lower(), Manager(name, auth_headers))
+            setattr(self, name.lower(), Manager(name, credentials, base_url=base_url))
 
-        setattr(self, "listAPI", ExoList(auth_headers))
+        self.listAPI = ExoList(credentials, base_url)
+
+    def __getattr__(self, name: str) -> Manager:
+        # Attributes are created dynamically from OBJECT_LIST (lowercase names).
+        raise AttributeError(name)
 
 
-class ExoList(object):
+class ExoList:
     """An ORM-like interface to the MYOB EXO List API"""
 
-    OBJECT_LIST = (
+    OBJECT_LIST: tuple[str, ...] = (
         "AccountGroup",
         "AdvertType",
         "BasePrice",
@@ -65,6 +72,9 @@ class ExoList(object):
         "TaxRate",
     )
 
-    def __init__(self, auth_headers):
+    def __init__(self, credentials: Credentials, base_url: str | None = None) -> None:
         for name in self.OBJECT_LIST:
-            setattr(self, name.lower(), Manager(name, auth_headers))
+            setattr(self, name.lower(), Manager(name, credentials, base_url=base_url))
+
+    def __getattr__(self, name: str) -> Manager:
+        raise AttributeError(name)

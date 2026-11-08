@@ -1,114 +1,99 @@
+from __future__ import annotations
+
 import json
+from typing import Any
+
 import requests
 
+from .auth import Credentials
 from .exceptions import (
-    ExoBadRequest, ExoExceptionUnknown, ExoForbidden, ExoInternalError,
-    ExoNotFound, ExoRemoved, ExoTimeout, ExoUnauthorised
+    ExoBadRequest,
+    ExoException,
+    ExoExceptionUnknown,
+    ExoForbidden,
+    ExoInternalError,
+    ExoNotFound,
+    ExoRemoved,
+    ExoTimeout,
+    ExoUnauthorised,
 )
 
-from .utils import is_plural, singular
+Params = dict[str, Any]
+Body = dict[str, Any] | list[Any] | str | bytes | None
+
+ERRORS: dict[int, type[ExoException]] = {
+    400: ExoBadRequest,
+    401: ExoUnauthorised,
+    403: ExoForbidden,
+    404: ExoNotFound,
+    408: ExoTimeout,
+    410: ExoRemoved,
+    500: ExoInternalError,
+}
+SUCCESS = (200, 201, 202)
 
 
-class BaseManager(object):
-    DECORATED_METHODS = (
-        'all',
-        'delete',
-        'search',
-        'get',
-        'put',
-        'save',
-    )
+class BaseManager:
+    """HTTP plumbing shared by all managers."""
 
-    def _all(self, params=None):
-        uri = '/'.join([self.base_url, self.name])
-        uri_params = self.extra_params.copy()
-        uri_params.update(params if params else {})
-        return uri, uri_params, 'get', None, False
+    credentials: Credentials
+    base_url: str
+    name: str
+    user_agent: str
+    timeout: float
+    extra_params: Params
 
-    def _delete(self, id):
-        uri = '/'.join([self.base_url, self.name, id])
-        return uri, {}, 'delete', None, False
+    def _url(self, *parts: str) -> str:
+        return "/".join([self.base_url, self.name, *parts])
 
-    def _search(self, search_params, params=None):
-        uri = '/'.join([self.base_url, self.name, 'search?q='+search_params])
-        uri_params = self.extra_params.copy()
-        uri_params.update(params if params else {})
-        return uri, uri_params, 'get', None, True
+    def _merged(self, params: Params | None) -> Params:
+        return {**self.extra_params, **(params or {})}
 
-    def _get(self, id, params=None):
-        uri = '/'.join([self.base_url, self.name, id])
-        uri_params = self.extra_params.copy()
-        uri_params.update(params if params else {})
-        return uri, uri_params, 'get', None, True
+    def all(self, params: Params | None = None) -> Any:
+        """List objects; pass ``{"page": n}`` etc. to page through results."""
+        return self._request("get", self._url(), self._merged(params))
 
-    def _put(self, data, validate=False):
-        return self.save_or_put(data, validate, method='put')
+    def get(self, id: str | int, params: Params | None = None) -> Any:
+        return self._request("get", self._url(str(id)), self._merged(params))
 
-    def _save(self, data, validate=False):
-        return self.save_or_put(data, validate, method='post')
+    def search(self, search_params: str, params: Params | None = None) -> Any:
+        return self._request(
+            "get", self._url("search"), self._merged({"q": search_params, **(params or {})})
+        )
 
-    def save_or_put(self, data, validate=False, method='post'):
-        uri = '/'.join([self.base_url, self.name])
-        if validate:
-            uri = '/'.join([uri, 'validate'])
-        params = self.extra_params.copy()
-        return uri, params, method, data, False
+    def delete(self, id: str | int) -> Any:
+        return self._request("delete", self._url(str(id)))
 
-    def _parse_api_response(self, response, resource_name):
-        data = json.loads(response.text)
-        try:
-            return json.dumps(data, indent=4, sort_keys=True)  # [resource_name]
-        except KeyError:
-            return data
+    def put(self, data: Body, validate: bool = False) -> Any:
+        return self._write("put", data, validate)
 
-    def _get_data(self, func):
-        """ This is the decorator for our DECORATED_METHODS.
-        Each of the decorated methods must return:
-            uri, params, method, body, headers, singleobject
-        """
-        def wrapper(*args, **kwargs):
-            # timeout = kwargs.pop('timeout', None)
-            timeout = 5
+    def save(self, data: Body, validate: bool = False) -> Any:
+        return self._write("post", data, validate)
 
-            uri, params, method, body, singleobject = func(*args, **kwargs)
+    def _write(self, method: str, data: Body, validate: bool) -> Any:
+        parts = ("validate",) if validate else ()
+        return self._request(method, self._url(*parts), self._merged(None), data)
 
-            headers = self.credentials.auth_headers
+    def _request(
+        self, method: str, uri: str, params: Params | None = None, body: Body = None
+    ) -> Any:
+        # Copy so per-request headers never leak into the shared credentials.
+        headers = dict(self.credentials.auth_headers)
+        # Default to JSON, but a caller may want a PDF (application/pdf).
+        headers.setdefault("Accept", "application/json")
+        headers["User-Agent"] = self.user_agent
+        if body is not None and not isinstance(body, str | bytes):
+            body = json.dumps(body)
+            headers["Content-Type"] = "application/json"
 
-            # Use the JSON API by default, but remember we might request a PDF (application/pdf)
-            # so don't force the Accept header.
-            if 'Accept' not in headers:
-                headers['Accept'] = 'application/json'
+        response = requests.request(
+            method, uri, data=body, headers=headers, params=params, timeout=self.timeout
+        )
 
-            # Set a user-agent so Exo knows the traffic is coming from pyExo
-            # or individual user/partner
-            headers['User-Agent'] = self.user_agent
+        if response.status_code in SUCCESS:
+            # If we haven't got JSON, assume we're being returned a binary file
+            if not response.headers.get("content-type", "").startswith("application/json"):
+                return response.content
+            return response.json()
 
-            response = getattr(requests, method)(
-                    uri, data=body, headers=headers,
-                    params=params, timeout=timeout)
-
-            if response.status_code in [200, 201, 202]:
-                # If we haven't got JSON, assume we're being returned a binary file
-                if not response.headers['content-type'].startswith('application/json'):
-                    return response.content
-
-                return self._parse_api_response(response, self.name)
-
-            elif response.status_code == 400:
-                raise ExoBadRequest(response)
-
-            elif response.status_code == 401:
-                raise ExoUnauthorised(response)
-
-            elif response.status_code == 403:
-                raise ExoForbidden(response)
-
-            elif response.status_code == 404:
-                raise ExoNotFound(response)
-
-            elif response.status_code == 500:
-                raise ExoInternalError(response)
-            else:
-                raise ExoExceptionUnknown(response)
-
-        return wrapper
+        raise ERRORS.get(response.status_code, ExoExceptionUnknown)(response)

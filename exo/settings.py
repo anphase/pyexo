@@ -1,50 +1,50 @@
+"""Configuration for the EXO client.
+
+Values come from a ``.env`` file (INI format) in the current working directory,
+falling back to environment variables for the authentication values. Nothing is
+read until one of the functions below is called, so importing ``exo`` never
+requires configuration.
 """
-Extract configuration settings from either .env file or environment variables
-"""
-import os
+
+from __future__ import annotations
+
 import configparser
-from .exceptions import ExoIncompleteAuthorisation
+import os
+
+AUTH_VARS = ("EXO_USERNAME", "EXO_PASSWORD", "EXO_API_KEY", "EXO_TOKEN")
 
 
-config = configparser.ConfigParser()
-current_path = os.path.abspath('')
-config.read(current_path+'/.env')
+def _load_config() -> configparser.ConfigParser:
+    config = configparser.ConfigParser()
+    config.read(os.path.join(os.path.abspath(""), ".env"))
+    return config
 
-ip_address = config['DEFAULT']['EXO_IP']
-port = config['DEFAULT']['EXO_PORT']
 
-EXO_URL = "http://" + ip_address + ":" + port
+def get_auth() -> dict[str, str | None]:
+    """Return the four authentication values, or None where unset."""
+    config = _load_config()
+    return {
+        name: config.get("AUTH", name, fallback=None) or os.environ.get(name) for name in AUTH_VARS
+    }
 
-# Optional logging and caching folders
-try:
-    LOGS_DIRECTORY = config['DEFAULT']['LOGS']
-except KeyError:
-    LOGS_DIRECTORY = "logs"
 
-try:
-    CACHE_DIRECTORY = config['DEFAULT']['LOGS']
-except KeyError:
-    CACHE_DIRECTORY = "caching"
+def get_base_url() -> str:
+    """Return the on-premise API base URL built from ``EXO_IP`` and ``EXO_PORT``."""
+    config = _load_config()
+    try:
+        ip_address = config["DEFAULT"]["EXO_IP"]
+        port = config["DEFAULT"]["EXO_PORT"]
+    except KeyError as missing:
+        raise ValueError(
+            f"{missing.args[0]} is not set; add EXO_IP and EXO_PORT to the [DEFAULT] "
+            "section of a .env file, or pass base_url explicitly"
+        ) from None
+    return f"http://{ip_address}:{port}"
 
-try:
-    EXO_USERNAME = config['AUTH']['EXO_USERNAME']
-except KeyError:
-    EXO_USERNAME = os.environ.get('EXO_USERNAME')
 
-try:
-    EXO_PASSWORD = config['AUTH']['EXO_PASSWORD']
-except KeyError:
-    EXO_PASSWORD = os.environ.get('EXO_PASSWORD')
+def get_logs_directory() -> str:
+    return _load_config().get("DEFAULT", "LOGS", fallback="logs")
 
-try:
-    EXO_API_KEY = config['AUTH']['EXO_API_KEY']
-except KeyError:
-    EXO_API_KEY = os.environ.get('EXO_API_KEY')
 
-try:
-    EXO_TOKEN = config['AUTH']['EXO_TOKEN']
-except KeyError:
-    EXO_TOKEN = os.environ.get('EXO_TOKEN')
-
-if None in [EXO_USERNAME, EXO_PASSWORD, EXO_API_KEY, EXO_TOKEN]:
-    raise ExoIncompleteAuthorisation("Error")
+def get_cache_directory() -> str:
+    return _load_config().get("DEFAULT", "CACHE", fallback="caching")

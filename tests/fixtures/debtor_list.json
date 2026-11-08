@@ -1,0 +1,4 @@
+[
+  {"id": 1, "accountno": "TEST001", "name": "Example Trading Pty Ltd", "balance": 120.5},
+  {"id": 2, "accountno": "TEST002", "name": "Sample Supplies Ltd", "balance": 0}
+]

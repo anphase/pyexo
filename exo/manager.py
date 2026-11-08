@@ -1,27 +1,29 @@
+from __future__ import annotations
+
 import requests
 
-from .settings import EXO_URL
+from .auth import Credentials
 from .basemanager import BaseManager
+from .settings import get_base_url
 from .utils import is_plural, singular
 
 
 class Manager(BaseManager):
-    def __init__(self, name, credentials, user_agent=None):
-        from . import __version__ as VERSION
+    def __init__(
+        self,
+        name: str,
+        credentials: Credentials,
+        user_agent: str | None = None,
+        base_url: str | None = None,
+        timeout: float = 5,
+    ) -> None:
+        from . import __version__
+
+        if not name:
+            raise ValueError("name must not be empty")
         self.credentials = credentials
-        self.base_url = EXO_URL
+        self.base_url = (base_url or get_base_url()).rstrip("/")
+        self.timeout = timeout
         self.extra_params = {"pagesize": "100"}
-
-        if is_plural(name):
-            self.name = singular(name)
-        else:
-            self.name = name
-
-        if user_agent is None:
-            self.user_agent = 'pyexo/%s ' % VERSION + requests.utils.default_user_agent()
-        else:
-            self.user_agent = user_agent
-
-        for method_name in self.DECORATED_METHODS:
-            method = getattr(self, '_%s' % method_name)
-            setattr(self, method_name, self._get_data(method))
+        self.name = singular(name) if is_plural(name) else name
+        self.user_agent = user_agent or f"pyexo/{__version__} {requests.utils.default_user_agent()}"

@@ -11,3 +11,7 @@ Differences found in this library (addressed on the `modernise` branch):
 - The Basic credential was built with `str(bytes)`, producing `Basic b'...'` instead of the base64 text.
 - Only plain `http://` on-premise URLs were supported; the cloud host was not.
 - Settings were read (and required) at import time.
+
+## Outlook
+
+MYOB EXO Business and its REST API remain documented and supported, with no announced end-of-life. The developer pages are largely unchanged since about 2019, though, and MYOB has begun winding down the companion EXO Payroll suite, with consultancies publicly advising EXO customers to plan a move to MYOB Acumatica (previously MYOB Advanced) over the longer term. That successor is a different product with a different API (OAuth 2.0, different resources), so this library will keep targeting EXO as it stands today; a client for a successor API would be a separate piece of work rather than a rework of this one.

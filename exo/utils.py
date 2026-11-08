@@ -1,4 +1,6 @@
-OBJECT_NAMES = {
+from __future__ import annotations
+
+OBJECT_NAMES: dict[str, str] = {
     "AccountGroups": "AccountGroup",
     "Activities": "Activity",
     "ActivityStatuses": "ActivityStatus",
@@ -43,9 +45,9 @@ OBJECT_NAMES = {
 }
 
 
-def is_plural(word):
-    return word in OBJECT_NAMES.keys()
+def is_plural(word: str) -> bool:
+    return word in OBJECT_NAMES
 
 
-def singular(word):
-    return OBJECT_NAMES.get(word)
+def singular(word: str) -> str:
+    return OBJECT_NAMES.get(word, word)
