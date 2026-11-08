@@ -16,6 +16,7 @@ class Manager(BaseManager):
         user_agent: str | None = None,
         base_url: str | None = None,
         timeout: float = 5,
+        session: requests.Session | None = None,
     ) -> None:
         from . import __version__
 
@@ -24,6 +25,7 @@ class Manager(BaseManager):
         self.credentials = credentials
         self.base_url = (base_url or get_base_url()).rstrip("/")
         self.timeout = timeout
+        self.session = session or requests.Session()
         self.extra_params = {"pagesize": "100"}
         self.name = singular(name) if is_plural(name) else name
         self.user_agent = user_agent or f"pyexo/{__version__} {requests.utils.default_user_agent()}"

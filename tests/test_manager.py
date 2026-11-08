@@ -1,6 +1,7 @@
 import json
 
 import pytest
+import requests
 import responses
 
 from exo import Exo
@@ -137,3 +138,25 @@ def test_unknown_attributes_raise(credentials, base_url):
         exo.nonsense  # noqa: B018
     with pytest.raises(AttributeError):
         exo.listAPI.nonsense  # noqa: B018
+
+
+def test_exo_managers_share_one_session(credentials, base_url):
+    exo = Exo(credentials, base_url=base_url)
+    assert exo.debtor.session is exo.stockitem.session is exo.listAPI.currency.session
+    assert exo.session is exo.debtor.session
+
+
+def test_exo_accepts_a_session_and_leaves_it_open(credentials, base_url):
+    session = requests.Session()
+    closed = []
+    session.close = lambda: closed.append(True)  # type: ignore[method-assign]
+    with Exo(credentials, base_url=base_url, session=session) as exo:
+        assert exo.debtor.session is session
+    assert closed == []
+
+
+def test_exo_closes_its_own_session(credentials, base_url):
+    closed = []
+    with Exo(credentials, base_url=base_url) as exo:
+        exo.session.close = lambda: closed.append(True)  # type: ignore[method-assign]
+    assert closed == [True]

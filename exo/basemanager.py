@@ -41,6 +41,7 @@ class BaseManager:
     name: str
     user_agent: str
     timeout: float
+    session: requests.Session
     extra_params: Params
 
     def _url(self, *parts: str) -> str:
@@ -86,7 +87,7 @@ class BaseManager:
             body = json.dumps(body)
             headers["Content-Type"] = "application/json"
 
-        response = requests.request(
+        response = self.session.request(
             method, uri, data=body, headers=headers, params=params, timeout=self.timeout
         )
 
