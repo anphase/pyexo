@@ -50,3 +50,9 @@ def test_incomplete_authorisation_has_no_response():
     error = exc.ExoIncompleteAuthorisation()
     assert error.response is None
     assert "EXO_USERNAME" in str(error)
+
+
+@responses.activate
+def test_no_content_returns_none(credentials, base_url):
+    responses.delete(f"{base_url}/SalesOrder/7", status=204)
+    assert Manager("SalesOrder", credentials, base_url=base_url).delete(7) is None

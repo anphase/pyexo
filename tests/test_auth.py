@@ -1,4 +1,7 @@
 import base64
+import os
+import subprocess
+import sys
 
 import pytest
 
@@ -38,12 +41,12 @@ def test_incomplete_credentials_raise_a_helpful_error(monkeypatch):
     assert "EXO_TOKEN" in str(info.value)
 
 
-def test_importing_the_package_needs_no_configuration(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    import importlib
-
-    import exo.api
-    import exo.settings
-
-    importlib.reload(exo.settings)
-    importlib.reload(exo.api)
+def test_importing_the_package_needs_no_configuration(tmp_path):
+    result = subprocess.run(
+        [sys.executable, "-c", "import exo, exo.api"],
+        cwd=tmp_path,
+        env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": os.pathsep.join(sys.path)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

@@ -30,7 +30,7 @@ ERRORS: dict[int, type[ExoException]] = {
     410: ExoRemoved,
     500: ExoInternalError,
 }
-SUCCESS = (200, 201, 202)
+SUCCESS = (200, 201, 202, 204)
 
 
 class BaseManager:
@@ -91,6 +91,8 @@ class BaseManager:
         )
 
         if response.status_code in SUCCESS:
+            if response.status_code == 204:
+                return None
             # If we haven't got JSON, assume we're being returned a binary file
             if not response.headers.get("content-type", "").startswith("application/json"):
                 return response.content
