@@ -15,6 +15,8 @@ and the project uses [semantic versioning](https://semver.org/).
   `credentials` may be omitted (it then comes from the configuration).
 - Configuration precedence is now constructor arguments, then environment variables, then `.env`.
   Previously a `.env` value beat the environment.
+- An empty environment variable no longer overrides a `.env` value (it is treated as unset when the file
+  has one).
 - The base URL can be set with `EXO_BASE_URL`; `EXO_IP` and `EXO_PORT` still work.
 - Requests go through a per-client `requests.Session` and transient failures are retried by default
   (see Added), so a 429/502/503/504 that used to raise immediately may now succeed or take longer.

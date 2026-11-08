@@ -29,10 +29,13 @@ def test_environment_takes_precedence_over_env_file(monkeypatch, tmp_path):
     assert auth["EXO_TOKEN"] == "file-token"
 
 
-def test_empty_environment_value_is_kept(monkeypatch, tmp_path):
+def test_empty_environment_value_does_not_hide_the_env_file(monkeypatch, tmp_path):
     (tmp_path / ".env").write_text("EXO_PASSWORD=from-file\n")
     monkeypatch.setenv("EXO_PASSWORD", "")
-    assert settings.get_auth()["EXO_PASSWORD"] == ""
+    monkeypatch.setenv("EXO_TOKEN", "")
+    auth = settings.get_auth()
+    assert auth["EXO_PASSWORD"] == "from-file"
+    assert auth["EXO_TOKEN"] == ""
 
 
 def test_missing_values_are_none():

@@ -83,9 +83,15 @@ def _read_env_file() -> dict[str, str]:
 
 
 def _lookup(names: tuple[str, ...]) -> dict[str, str | None]:
-    """Map each name to its environment value, else its ``.env`` value, else None."""
+    """Map each name to its environment value, else its ``.env`` value, else None.
+
+    An empty environment variable never hides a ``.env`` value; with no ``.env`` value
+    it stays empty (a legitimately empty password).
+    """
     file_values = _read_env_file()
-    return {name: os.environ.get(name, file_values.get(name)) for name in names}
+    return {
+        name: os.environ.get(name) or file_values.get(name, os.environ.get(name)) for name in names
+    }
 
 
 def get_auth() -> dict[str, str | None]:
