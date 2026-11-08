@@ -56,6 +56,6 @@ class ExoIncompleteAuthorisation(ExoException):
         super().__init__(
             None,
             "Incomplete EXO authorisation" + detail + ". Set EXO_USERNAME, EXO_PASSWORD, "
-            "EXO_API_KEY and EXO_TOKEN as environment variables or in the [AUTH] section "
-            "of a .env file.",
+            "EXO_API_KEY and EXO_TOKEN as environment variables or in a .env file, or pass "
+            "them to Credentials().",
         )

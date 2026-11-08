@@ -97,3 +97,10 @@ def test_legacy_ini_file_still_works_with_a_deprecation_warning(tmp_path):
 def test_unreadable_env_file_is_ignored(tmp_path):
     (tmp_path / ".env").mkdir()
     assert settings.get_auth()["EXO_USERNAME"] is None
+
+
+def test_legacy_ini_warning_is_attributed_to_the_caller(tmp_path):
+    (tmp_path / ".env").write_text("[DEFAULT]\nEXO_IP = 10.0.0.1\nEXO_PORT = 8888\n")
+    with pytest.warns(DeprecationWarning) as record:
+        settings.get_base_url()
+    assert record[0].filename == __file__

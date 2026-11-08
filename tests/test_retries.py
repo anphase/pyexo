@@ -85,7 +85,8 @@ def test_posts_are_not_retried(credentials, server):
 def test_a_retry_policy_can_be_passed():
     policy = Retry(total=7)
     session = make_session(policy)
-    assert session.get_adapter("https://exo.test").max_retries is policy
+    retry = session.get_adapter("https://exo.test").max_retries
+    assert retry.total == 7 and retry.raise_on_status is False
 
 
 def test_default_policy_covers_the_documented_statuses():

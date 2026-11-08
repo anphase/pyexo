@@ -23,7 +23,8 @@ def make_session(
     """
     session = requests.Session()
     if isinstance(retries, Retry):
-        policy: Retry | int = retries
+        # Never raise RetryError: the last response goes through the ExoException mapping.
+        policy: Retry = retries.new(raise_on_status=False)
     elif retries:
         policy = Retry(
             total=retries,

@@ -15,6 +15,7 @@ from __future__ import annotations
 import configparser
 import os
 import re
+import sys
 import warnings
 from pathlib import Path
 
@@ -23,6 +24,22 @@ AUTH_VARS = ("EXO_USERNAME", "EXO_PASSWORD", "EXO_API_KEY", "EXO_TOKEN")
 _SECTION = re.compile(r"^\s*\[[^\]]+\]\s*$", re.MULTILINE)
 _QUOTED = re.compile(r"""^(["'])(.*)\1\s*(?:\s#.*)?$""")
 _INLINE_COMMENT = re.compile(r"\s+#.*$")
+
+
+def _warn_deprecated(message: str) -> None:
+    """Warn at the first stack frame outside this package.
+
+    A fixed ``stacklevel`` would land inside ``exo`` (the depth varies with the caller:
+    ``Credentials()``, ``Exo()``, ``Manager()``), and ``DeprecationWarning`` is hidden by
+    default unless it is attributed to ``__main__``.
+    """
+    package = str(Path(__file__).parent)
+    frame = sys._getframe()
+    level = 1
+    while frame.f_back is not None and frame.f_code.co_filename.startswith(package):
+        frame = frame.f_back
+        level += 1
+    warnings.warn(message, DeprecationWarning, stacklevel=level)
 
 
 def _parse_dotenv(text: str) -> dict[str, str]:
@@ -53,15 +70,13 @@ def _parse_legacy_ini(text: str) -> dict[str, str]:
 def _read_env_file() -> dict[str, str]:
     path = Path.cwd() / ".env"
     try:
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8-sig")
     except OSError:
         return {}
     if _SECTION.search(text):
-        warnings.warn(
+        _warn_deprecated(
             f"{path} uses the INI-style format with [DEFAULT]/[AUTH] sections, which is "
-            "deprecated; use plain KEY=VALUE lines instead",
-            DeprecationWarning,
-            stacklevel=3,
+            "deprecated; use plain KEY=VALUE lines instead"
         )
         return _parse_legacy_ini(text)
     return _parse_dotenv(text)
