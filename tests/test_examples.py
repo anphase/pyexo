@@ -1,5 +1,6 @@
 import json
 import runpy
+import sys
 from pathlib import Path
 
 import pytest
@@ -43,6 +44,38 @@ def test_create_sales_order_submits_the_validation_response(base_url, capsys):
     assert creation_request.url.startswith(f"{base_url}/SalesOrder?")
     assert json.loads(creation_request.body) == validated_order
     assert capsys.readouterr().out == "{'id': 7}\n"
+
+
+@pytest.mark.parametrize(
+    ("saleprices", "expected_prices"),
+    [
+        (load_fixture("stockitem.json")["saleprices"], "Retail 9.95\nTrade 8.5\n"),
+        (None, ""),
+        ([], ""),
+    ],
+)
+@responses.activate
+def test_get_stock_item_prints_code_and_available_prices(
+    base_url, capsys, monkeypatch, saleprices, expected_prices
+):
+    item = load_fixture("stockitem.json")
+    item["saleprices"] = saleprices
+    responses.get(f"{base_url}/StockItem/WIDGET-1", json=item)
+    monkeypatch.setattr(sys, "argv", ["get_stock_item.py", "WIDGET-1"])
+
+    runpy.run_path(str(EXAMPLES / "get_stock_item.py"), run_name="__main__")
+
+    assert capsys.readouterr().out == "WIDGET-1 Example widget\n" + expected_prices
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_get_stock_item_reports_a_missing_code(base_url, monkeypatch):
+    responses.get(f"{base_url}/StockItem/MISSING", status=404)
+    monkeypatch.setattr(sys, "argv", ["get_stock_item.py", "MISSING"])
+
+    with pytest.raises(SystemExit, match="No stock item with id MISSING"):
+        runpy.run_path(str(EXAMPLES / "get_stock_item.py"), run_name="__main__")
 
 
 @responses.activate

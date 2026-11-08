@@ -1,1 +1,8 @@
-{"id": 42, "stockcode": "WIDGET-1", "description": "Example widget", "sellprice": 9.95}
+{
+  "id": "WIDGET-1",
+  "description": "Example widget",
+  "saleprices": [
+    {"id": 1, "name": "Retail", "price": 9.95, "currencyid": 0},
+    {"id": 2, "name": "Trade", "price": 8.5, "currencyid": 0}
+  ]
+}

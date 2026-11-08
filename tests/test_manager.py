@@ -34,9 +34,10 @@ def test_all_merges_and_overrides_params(credentials, base_url):
 
 @responses.activate
 def test_get_fetches_single_object(credentials, base_url):
-    responses.get(f"{base_url}/StockItem/42", json=load_fixture("stockitem.json"))
-    item = Manager("StockItem", credentials, base_url=base_url).get(42)
-    assert item["stockcode"] == "WIDGET-1"
+    responses.get(f"{base_url}/StockItem/WIDGET-1", json=load_fixture("stockitem.json"))
+    item = Manager("StockItem", credentials, base_url=base_url).get("WIDGET-1")
+    assert item["id"] == "WIDGET-1"
+    assert [price["price"] for price in item["saleprices"]] == [9.95, 8.5]
 
 
 @responses.activate
@@ -111,9 +112,9 @@ def test_custom_user_agent(credentials, base_url):
 @responses.activate
 def test_exo_exposes_a_manager_per_object(credentials, base_url):
     exo = Exo(credentials, base_url=base_url)
-    responses.get(f"{base_url}/StockItem/42", json=load_fixture("stockitem.json"))
+    responses.get(f"{base_url}/StockItem/WIDGET-1", json=load_fixture("stockitem.json"))
     responses.get(f"{base_url}/Currency", json=[])
-    assert exo.stockitem.get(42)["id"] == 42
+    assert exo.stockitem.get("WIDGET-1")["id"] == "WIDGET-1"
     exo.listAPI.currency.all()
     assert isinstance(exo.debtor, Manager)
 

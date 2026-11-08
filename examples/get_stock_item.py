@@ -1,4 +1,4 @@
-"""Fetch one stock item by id: python get_stock_item.py 42"""
+"""Fetch one stock item by stock code: python get_stock_item.py WIDGET-1"""
 
 import sys
 
@@ -13,4 +13,6 @@ try:
 except ExoNotFound:
     sys.exit(f"No stock item with id {sys.argv[1]}")
 
-print(item["stockcode"], item["description"], item["sellprice"])
+print(item["id"], item["description"])
+for saleprice in item["saleprices"] or []:
+    print(saleprice["name"], saleprice["price"])
