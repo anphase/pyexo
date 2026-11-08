@@ -7,6 +7,8 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ### Changed (breaking)
 - Python 3.11 or newer is required (3.10 reached end of life in October 2026).
+- Dependencies are now `requests>=2.32` and `urllib3>=2` (the retry support uses the urllib3 2.x API,
+  so urllib3 1.26 no longer works).
 - `Exo` and `ExoList` are one class. `ExoList` is gone from `exo`; `exo.listAPI.currency` still works,
   and List API objects are also reachable directly (`exo.currency`). Managers are created on first
   access and cached, and an unknown name raises `AttributeError` with a close-match suggestion.
