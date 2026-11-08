@@ -15,7 +15,8 @@ AUTH_VARS = ("EXO_USERNAME", "EXO_PASSWORD", "EXO_API_KEY", "EXO_TOKEN")
 
 
 def _load_config() -> configparser.ConfigParser:
-    config = configparser.ConfigParser()
+    # interpolation=None: passwords and tokens may legitimately contain "%".
+    config = configparser.ConfigParser(interpolation=None)
     config.read(os.path.join(os.path.abspath(""), ".env"))
     return config
 

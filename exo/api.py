@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .auth import Credentials
 from .manager import Manager
+from .settings import get_base_url
 
 
 class Exo:
@@ -44,6 +45,7 @@ class Exo:
         each of them create an attribute on our self that is
         the lowercase name of the object and attach it to an
         instance of a Manager object to operate on it"""
+        base_url = base_url or get_base_url()  # read .env once, not per manager
         for name in self.OBJECT_LIST:
             setattr(self, name.lower(), Manager(name, credentials, base_url=base_url))
 
@@ -73,6 +75,7 @@ class ExoList:
     )
 
     def __init__(self, credentials: Credentials, base_url: str | None = None) -> None:
+        base_url = base_url or get_base_url()
         for name in self.OBJECT_LIST:
             setattr(self, name.lower(), Manager(name, credentials, base_url=base_url))
 

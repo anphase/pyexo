@@ -54,3 +54,9 @@ def test_directories_default_and_override(monkeypatch, tmp_path):
     (tmp_path / ".env").write_text("[DEFAULT]\nLOGS = mylogs\nCACHE = mycache\n")
     assert settings.get_logs_directory() == "mylogs"
     assert settings.get_cache_directory() == "mycache"
+
+
+def test_percent_signs_in_values_are_not_interpolated(monkeypatch, tmp_path):
+    (tmp_path / ".env").write_text("[AUTH]\nEXO_TOKEN = 123AA*%\n")
+    monkeypatch.chdir(tmp_path)
+    assert settings.get_auth()["EXO_TOKEN"] == "123AA*%"
