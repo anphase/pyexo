@@ -27,8 +27,8 @@ and the project uses [semantic versioning](https://semver.org/).
 - `with Exo(...) as exo:` and `Exo.close()`, and the same on a standalone `Manager` (which closes only a
   session it created itself); pass `session=` to supply your own `requests.Session`.
 - Bounded retries (`retries=3`, `backoff_factor=0.5`) for 429, 502, 503 and 504 with exponential backoff
-  and `Retry-After` (clamped to 60 seconds). `GET`, `PUT` and `DELETE` also retry connect and read errors;
-  `POST` is never retried. Set `retries=0` to turn them off, or pass a `urllib3` `Retry`.
+  and `Retry-After` (clamped to 60 seconds). `GET`, `PUT` and `DELETE` also retry connect and read errors,
+  including a connection that drops while the response body downloads; `POST` is never retried. Set `retries=0` to turn them off, or pass a `urllib3` `Retry`.
 - `Manager.iter_all(params=None, page_size=100)` yields items across pages; `all()` is still one page.
 - `Exo.discovery()` returns the parsed `GET <base>/discovery` response.
 - Standard `KEY=VALUE` `.env` files (comments, `export`, quotes), and `EXO_BASE_URL`.

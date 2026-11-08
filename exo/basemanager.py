@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterator
 from typing import Any
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from .auth import Credentials
 from .exceptions import (
@@ -33,6 +36,12 @@ ERRORS: dict[int, type[ExoException]] = {
     500: ExoInternalError,
 }
 SUCCESS = (200, 201, 202, 204)
+BODY_RETRY_METHODS = ("get", "put", "delete")  # never POST: it could be applied twice
+BODY_ERRORS = (
+    requests.exceptions.ChunkedEncodingError,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.ReadTimeout,
+)
 
 
 class BaseManager:
@@ -115,9 +124,7 @@ class BaseManager:
             body = json.dumps(body)
             headers["Content-Type"] = "application/json"
 
-        response = self.session.request(
-            method, uri, data=body, headers=headers, params=params, timeout=self.timeout
-        )
+        response = self._send(method, uri, body, headers, params)
 
         if response.status_code in SUCCESS:
             if response.status_code == 204:
@@ -128,3 +135,40 @@ class BaseManager:
             return response.json()
 
         raise ERRORS.get(response.status_code, ExoExceptionUnknown)(response)
+
+    def _send(
+        self, method: str, uri: str, body: Body, headers: dict[str, str], params: Params | None
+    ) -> requests.Response:
+        """Send the request and read the whole body, retrying a failed body download.
+
+        requests reads the body outside urllib3's retry loop, so a connection that drops
+        after the headers arrive would otherwise fail on the first attempt. The retry
+        count and backoff come from the session adapter's ``Retry`` policy; POST is
+        never retried.
+        """
+        adapter = self.session.get_adapter(uri)
+        policy = adapter.max_retries if isinstance(adapter, HTTPAdapter) else Retry(0)
+        retries = int(policy.total or 0) if method.lower() in BODY_RETRY_METHODS else 0
+        attempt = 0
+        while True:
+            response = self.session.request(
+                method,
+                uri,
+                data=body,
+                headers=headers,
+                params=params,
+                timeout=self.timeout,
+                stream=True,
+            )
+            try:
+                response.content  # noqa: B018 - read now so a failure is caught here
+            except BODY_ERRORS:
+                response.close()
+                if attempt >= retries:
+                    raise
+                attempt += 1
+                # Same schedule as urllib3: no wait before the first retry, then doubling.
+                if attempt > 1:
+                    time.sleep(min(policy.backoff_max, policy.backoff_factor * 2 ** (attempt - 1)))
+                continue
+            return response

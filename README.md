@@ -107,7 +107,7 @@ All managers of one `Exo` share a single `requests.Session`, so connections are 
 `Exo(credentials, session=my_session)`; you then close it yourself.
 
 Responses 429, 502, 503 and 504 are retried up to 3 times with exponential backoff that honours `Retry-After`
-(a wait longer than 60 seconds is clamped to 60). `GET`, `PUT` and `DELETE` also retry connect and read errors
+(a wait longer than 60 seconds is clamped to 60). `GET`, `PUT` and `DELETE` also retry connect and read errors, including a drop while the body downloads
 (each retry waits for the timeout again, so one call can take several times `timeout`). `POST` is never retried,
 so a write is never sent twice. Tune or disable it on the session `Exo` creates:
 

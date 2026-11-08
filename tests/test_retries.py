@@ -3,6 +3,7 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
+import requests
 from urllib3.util.retry import Retry
 
 from exo import Exo
@@ -17,6 +18,14 @@ class Handler(BaseHTTPRequestHandler):
     def _respond(self) -> None:
         type(self).seen.append(self.command)
         status, headers = type(self).script.pop(0) if type(self).script else (200, {})
+        if headers.get("X-Truncate"):  # promise 10 bytes, send 3, drop the connection
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", "10")
+            self.end_headers()
+            self.wfile.write(b"[1,")
+            self.close_connection = True
+            return
         self.send_response(status)
         for key, value in headers.items():
             self.send_header(key, value)
@@ -103,3 +112,46 @@ def test_retry_after_is_capped_at_sixty_seconds():
     assert retry.get_retry_after(HTTPResponse(headers={"Retry-After": "3600"})) == 60
     assert retry.get_retry_after(HTTPResponse(headers={"Retry-After": "7"})) == 7
     assert retry.get_retry_after(HTTPResponse()) is None
+
+
+TRUNCATED = (200, {"X-Truncate": "1"})
+
+
+def test_a_body_that_drops_mid_download_is_retried_for_get(credentials, server):
+    Handler.script = [TRUNCATED, TRUNCATED]
+    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
+        assert exo.debtor.all() == []
+    assert Handler.seen == ["GET", "GET", "GET"]
+
+
+def test_body_retries_are_bounded(credentials, server):
+    Handler.script = [TRUNCATED] * 10
+    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
+        with pytest.raises(requests.exceptions.RequestException):
+            exo.debtor.all()
+    assert len(Handler.seen) == 4
+
+
+def test_body_retries_can_be_turned_off(credentials, server):
+    Handler.script = [TRUNCATED]
+    with Exo(credentials, base_url=server, retries=0) as exo:
+        with pytest.raises(requests.exceptions.RequestException):
+            exo.debtor.all()
+    assert len(Handler.seen) == 1
+
+
+def test_a_post_body_that_drops_is_not_retried(credentials, server):
+    Handler.script = [TRUNCATED]
+    with Exo(credentials, base_url=server, backoff_factor=0) as exo:
+        with pytest.raises(requests.exceptions.RequestException):
+            exo.salesorder.save({"a": 1})
+    assert Handler.seen == ["POST"]
+
+
+def test_body_retry_backoff_doubles_after_the_first_retry(credentials, server, monkeypatch):
+    sleeps = []
+    monkeypatch.setattr("exo.basemanager.time.sleep", sleeps.append)
+    Handler.script = [TRUNCATED] * 3
+    with Exo(credentials, base_url=server, backoff_factor=2) as exo:
+        assert exo.debtor.all() == []
+    assert sleeps == [4, 8]
