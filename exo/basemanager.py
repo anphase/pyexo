@@ -14,6 +14,7 @@ from .exceptions import (
     ExoForbidden,
     ExoInternalError,
     ExoNotFound,
+    ExoPaginationError,
     ExoRemoved,
     ExoTimeout,
     ExoUnauthorised,
@@ -55,14 +56,30 @@ class BaseManager:
         """List objects; pass ``{"page": n}`` etc. to page through results."""
         return self._request("get", self._url(), self._merged(params))
 
-    def iter_all(self, params: Params | None = None, page_size: int = 100) -> Iterator[Any]:
-        """Yield every object, fetching pages until one comes back short or empty."""
+    def iter_all(
+        self, params: Params | None = None, page_size: int = 100, max_pages: int | None = None
+    ) -> Iterator[Any]:
+        """Yield every object, fetching pages until one comes back empty.
+
+        A server may return fewer than ``page_size`` items per page, so only an empty
+        page ends the iteration. Raises ``ExoPaginationError`` if a page repeats the
+        previous one (an endpoint that ignores ``page``) or if ``max_pages`` pages have
+        been fetched and more remain.
+        """
+        previous: Any = None
         page = 1
         while True:
             items = self.all({**(params or {}), "page": page, "pagesize": page_size})
-            yield from items
-            if len(items) < page_size:
+            if not items:
                 return
+            if max_pages is not None and page > max_pages:
+                raise ExoPaginationError(f"more than max_pages={max_pages} pages of {self.name}")
+            if items == previous:
+                raise ExoPaginationError(
+                    f"{self.name} returned page {page} twice; it may ignore paging"
+                )
+            yield from items
+            previous = items
             page += 1
 
     def get(self, id: str | int, params: Params | None = None) -> Any:

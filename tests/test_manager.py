@@ -6,6 +6,7 @@ import requests
 import responses
 
 from exo import Exo
+from exo.exceptions import ExoException, ExoPaginationError
 from exo.manager import Manager
 
 from .conftest import load_fixture
@@ -200,7 +201,7 @@ def test_exo_closes_its_own_session(credentials, base_url):
 
 @responses.activate
 def test_iter_all_follows_pages_until_a_short_page(credentials, base_url):
-    pages = {"1": [{"id": 1}, {"id": 2}], "2": [{"id": 3}, {"id": 4}], "3": [{"id": 5}]}
+    pages = {"1": [{"id": 1}, {"id": 2}], "2": [{"id": 3}, {"id": 4}], "3": [{"id": 5}], "4": []}
     responses.add_callback(
         responses.GET,
         f"{base_url}/Debtor",
@@ -261,3 +262,59 @@ def test_singular_names_do_not_warn(credentials, base_url, recwarn):
     assert Manager("CommonPhrases", credentials, base_url=base_url).name == "CommonPhrases"
     assert Manager("Debtor", credentials, base_url=base_url).name == "Debtor"
     assert not recwarn.list
+
+
+@responses.activate
+def test_iter_all_survives_a_server_page_cap_below_page_size(credentials, base_url):
+    pages = {"1": [{"id": 1}, {"id": 2}], "2": [{"id": 3}], "3": []}
+    responses.add_callback(
+        responses.GET,
+        f"{base_url}/Debtor",
+        callback=lambda req: (
+            200,
+            {"Content-Type": "application/json"},
+            json.dumps(pages[req.params["page"]]),
+        ),
+    )
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    assert [d["id"] for d in manager.iter_all(page_size=100)] == [1, 2, 3]
+
+
+@responses.activate
+def test_iter_all_raises_when_a_page_repeats(credentials, base_url):
+    responses.get(f"{base_url}/Debtor", json=[{"id": 1}, {"id": 2}])
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    seen = []
+    with pytest.raises(ExoPaginationError, match="twice") as info:
+        for item in manager.iter_all(page_size=2):
+            seen.append(item["id"])
+    assert isinstance(info.value, ExoException)
+    assert seen == [1, 2]
+
+
+@responses.activate
+def test_iter_all_max_pages_bounds_the_walk(credentials, base_url):
+    responses.add_callback(
+        responses.GET,
+        f"{base_url}/Debtor",
+        callback=lambda req: (
+            200,
+            {"Content-Type": "application/json"},
+            json.dumps([{"id": int(req.params["page"])}]),
+        ),
+    )
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    got = []
+    with pytest.raises(ExoPaginationError, match="max_pages=2"):
+        for item in manager.iter_all(max_pages=2):
+            got.append(item["id"])
+    assert got == [1, 2]
+    assert len(responses.calls) == 3
+
+
+@responses.activate
+def test_iter_all_within_max_pages_completes(credentials, base_url):
+    responses.get(f"{base_url}/Debtor", json=[{"id": 1}])
+    responses.get(f"{base_url}/Debtor", json=[])
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    assert [d["id"] for d in manager.iter_all(max_pages=1)] == [1]

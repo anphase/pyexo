@@ -90,6 +90,11 @@ def test_list_debtors_prints_documented_fields_across_pages(base_url, capsys):
         json=debtors,
         match=[responses.matchers.query_param_matcher({"page": "2", "pagesize": "100"})],
     )
+    responses.get(
+        f"{base_url}/Debtor",
+        json=[],
+        match=[responses.matchers.query_param_matcher({"page": "3", "pagesize": "100"})],
+    )
 
     runpy.run_path(str(EXAMPLES / "list_debtors.py"), run_name="__main__")
 
@@ -97,4 +102,4 @@ def test_list_debtors_prints_documented_fields_across_pages(base_url, capsys):
         capsys.readouterr().out
         == ("1 TEST001 Example Trading Pty Ltd\n2 TEST002 Sample Supplies Ltd\n") * 51
     )
-    assert len(responses.calls) == 2
+    assert len(responses.calls) == 3

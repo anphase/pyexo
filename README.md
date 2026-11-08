@@ -96,7 +96,7 @@ for now but emit a `DeprecationWarning`.
 exo.debtor.search("acme")
 exo.stockitem.get(42)
 exo.debtor.all({"page": 2})                   # one page (default page size 100)
-for debtor in exo.debtor.iter_all():          # every page, until a short or empty one
+for debtor in exo.debtor.iter_all():          # every page, until an empty one
     ...
 exo.discovery()                               # GET <base>/discovery, parsed JSON
 ```

@@ -11,6 +11,13 @@ class ExoException(Exception):
         super().__init__(msg)
 
 
+class ExoPaginationError(ExoException):
+    """Paging through a listing did not terminate sensibly."""
+
+    def __init__(self, msg: str) -> None:
+        super().__init__(None, msg)
+
+
 class _HttpError(ExoException):
     def __init__(self, response: requests.Response) -> None:
         super().__init__(response, response.text)
