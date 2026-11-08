@@ -62,35 +62,60 @@ EXO_TOKEN = 11111111111122222222222222222333333333...
 
 Setting the authentication headers is done when initialising an instance of the API. First import the modules:
 
-```shell script
-$ from exo import Exo
-$ from exo.auth import Credentials
+```python
+from exo import Exo
+from exo.auth import Credentials
 ```
 
 If you have the environment variables setup then:
 
-```shell script
-$ credentials = Credentials()
+```python
+credentials = Credentials()
 ```
 
 Otherwise you can enter them manually:
 
-```shell script
-$ credentials = Credentials(<username>, <passoword>, <key>, <token>)
+```python
+credentials = Credentials(<username>, <passoword>, <key>, <token>)
 ```
 
 Then pass them into an instance of the Exo class:
 
-```shell script
-$ exo = Exo(credentials)
+```python
+exo = Exo(credentials)
 ```
 
 ## Using the EXO API
 
 The API is a work in progress, it returns dictionaries exactly as provided by the EXO API.
 
-## TODO
-Add tests and examples
+Responses are parsed JSON (dicts and lists), or `bytes` for non-JSON content such as PDF reports. Errors raise
+subclasses of `exo.exceptions.ExoException` (`ExoNotFound`, `ExoUnauthorised`, ...), which keep the HTTP `response`.
+
+Pagination is controlled with the `page` and `pagesize` query parameters (default page size 100):
+
+```python
+exo.debtor.all({"page": 2})
+exo.debtor.search("acme")
+exo.stockitem.get(42)
+```
+
+The on-premise base URL comes from `EXO_IP` and `EXO_PORT` in the `.env` file. For the cloud (LiveRelay) service
+pass it explicitly: `Exo(credentials, base_url="https://exo.api.myob.com")`.
+
+## Examples
+
+Short scripts in [`examples/`](examples/): [list debtors](examples/list_debtors.py),
+[fetch a stock item](examples/get_stock_item.py) and [create a sales order](examples/create_sales_order.py).
+
+## Development
+
+```shell script
+$ python -m venv .venv && .venv/bin/pip install -e '.[dev]'
+$ scripts/check.sh   # ruff, mypy --strict, pytest with coverage
+```
+
+Tests run against mocked HTTP and hand-written fixtures; no EXO server is needed.
 
 ## Requirements
-This project requires the requests module for the API calls
+Python 3.10 or newer and the `requests` package.
