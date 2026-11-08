@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 import requests
@@ -132,12 +133,45 @@ def test_unknown_names_are_kept_as_given(credentials, base_url):
         Manager("", credentials, base_url=base_url)
 
 
-def test_unknown_attributes_raise(credentials, base_url):
+def test_unknown_attributes_raise_with_a_suggestion(credentials, base_url):
     exo = Exo(credentials, base_url=base_url)
+    with pytest.raises(AttributeError, match="did you mean 'stockitem'"):
+        exo.stockitm  # noqa: B018
+    with pytest.raises(AttributeError, match="did you mean 'currency'"):
+        exo.listAPI.curency  # noqa: B018
+    with pytest.raises(AttributeError) as info:
+        exo.zzzzzz  # noqa: B018
+    assert "did you mean" not in str(info.value)
     with pytest.raises(AttributeError):
-        exo.nonsense  # noqa: B018
+        exo.listAPI.debtor  # noqa: B018  (a regular object, not a List API one)
     with pytest.raises(AttributeError):
-        exo.listAPI.nonsense  # noqa: B018
+        exo._private  # noqa: B018
+
+
+def test_managers_are_created_lazily_and_cached(credentials, base_url):
+    exo = Exo(credentials, base_url=base_url)
+    assert exo._managers == {}
+    assert exo.debtor is exo.debtor is exo.Debtor
+    assert list(exo._managers) == ["Debtor"]
+    assert exo.listAPI.currency is exo.currency
+
+
+def test_dir_lists_objects(credentials, base_url):
+    exo = Exo(credentials, base_url=base_url)
+    assert {"debtor", "currency", "discovery"} <= set(dir(exo))
+    assert "currency" in dir(exo.listAPI) and "debtor" not in dir(exo.listAPI)
+
+
+def test_exo_reads_credentials_and_base_url_from_configuration(monkeypatch):
+    for name, value in {
+        "EXO_USERNAME": "u",
+        "EXO_PASSWORD": "p",
+        "EXO_API_KEY": "k",
+        "EXO_TOKEN": "t",
+    }.items():
+        monkeypatch.setenv(name, value)
+    (Path.cwd() / ".env").write_text("[DEFAULT]\nEXO_IP = 10.2.2.2\nEXO_PORT = 9\n")
+    assert Exo().base_url == "http://10.2.2.2:9"
 
 
 def test_exo_managers_share_one_session(credentials, base_url):
