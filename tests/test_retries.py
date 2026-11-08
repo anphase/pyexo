@@ -94,3 +94,12 @@ def test_default_policy_covers_the_documented_statuses():
     assert retry.total == 3
     assert set(retry.status_forcelist) == {429, 502, 503, 504}
     assert retry.respect_retry_after_header
+
+
+def test_retry_after_is_capped_at_sixty_seconds():
+    from urllib3.response import HTTPResponse
+
+    retry = make_session().get_adapter("https://exo.test").max_retries
+    assert retry.get_retry_after(HTTPResponse(headers={"Retry-After": "3600"})) == 60
+    assert retry.get_retry_after(HTTPResponse(headers={"Retry-After": "7"})) == 7
+    assert retry.get_retry_after(HTTPResponse()) is None
