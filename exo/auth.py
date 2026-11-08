@@ -22,11 +22,15 @@ class Credentials:
         configured = get_auth()
         values = (
             username or configured["EXO_USERNAME"],
-            password or configured["EXO_PASSWORD"],
+            configured["EXO_PASSWORD"] if password is None else password,
             key or configured["EXO_API_KEY"],
             token or configured["EXO_TOKEN"],
         )
-        missing = [name for name, value in zip(AUTH_VARS, values, strict=True) if not value]
+        missing = [
+            name
+            for name, value in zip(AUTH_VARS, values, strict=True)
+            if value is None or (name != "EXO_PASSWORD" and not value)
+        ]
         if missing:
             raise ExoIncompleteAuthorisation(missing)
         self._username, self._password, self._key, self._token = (str(v) for v in values)

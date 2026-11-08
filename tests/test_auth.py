@@ -32,6 +32,44 @@ def test_credentials_fall_back_to_environment(monkeypatch):
     assert headers["x-myobapi-exotoken"] == "envtoken"
 
 
+@pytest.mark.parametrize("configured_password", [None, "configured-secret"])
+def test_explicit_empty_password_is_preserved(monkeypatch, configured_password):
+    if configured_password is not None:
+        monkeypatch.setenv("EXO_PASSWORD", configured_password)
+    headers = Credentials("demo", "", "key-123", "token-456").auth_headers
+    assert base64.b64decode(headers["Authorization"][6:]) == b"demo:"
+
+
+def test_none_password_uses_configured_password(monkeypatch):
+    monkeypatch.setenv("EXO_PASSWORD", "configured-secret")
+    headers = Credentials("demo", None, "key-123", "token-456").auth_headers
+    assert base64.b64decode(headers["Authorization"][6:]) == b"demo:configured-secret"
+
+
+def test_empty_configured_password_is_valid(monkeypatch):
+    monkeypatch.setenv("EXO_PASSWORD", "")
+    headers = Credentials("demo", None, "key-123", "token-456").auth_headers
+    assert base64.b64decode(headers["Authorization"][6:]) == b"demo:"
+
+
+def test_missing_password_is_rejected():
+    with pytest.raises(ExoIncompleteAuthorisation, match=r"missing: EXO_PASSWORD\)"):
+        Credentials("demo", None, "key-123", "token-456")
+
+
+@pytest.mark.parametrize(
+    ("username", "key", "token", "missing"),
+    [
+        ("", "key-123", "token-456", "EXO_USERNAME"),
+        ("demo", "", "token-456", "EXO_API_KEY"),
+        ("demo", "key-123", "", "EXO_TOKEN"),
+    ],
+)
+def test_other_empty_credentials_are_rejected(username, key, token, missing):
+    with pytest.raises(ExoIncompleteAuthorisation, match=rf"missing: {missing}\)"):
+        Credentials(username, "", key, token)
+
+
 def test_incomplete_credentials_raise_a_helpful_error(monkeypatch):
     for name in ("EXO_USERNAME", "EXO_PASSWORD", "EXO_API_KEY", "EXO_TOKEN"):
         monkeypatch.delenv(name, raising=False)
