@@ -45,6 +45,10 @@ and the project uses [semantic versioning](https://semver.org/).
 - `exo.utils` (the plural-name table), `ExoList`, and the unused `get_logs_directory` and
   `get_cache_directory` settings functions.
 
+### Fixed
+- A quoted `.env` value followed by a comment that itself contains quotes (for example `EXO_PASSWORD="secret" # from "vault"`) is read as `secret`.
+
+
 ## [0.2.0] - 2026-11-08
 
 ### Changed (breaking)
