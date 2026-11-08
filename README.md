@@ -70,11 +70,15 @@ Otherwise you can enter them manually:
 credentials = Credentials(<username>, <passoword>, <key>, <token>)
 ```
 
-Then pass them into an instance of the Exo class:
+Then pass them into an instance of the Exo class. Use it in a `with` block so the connection is closed
+(or call `exo.close()`):
 
 ```python
-exo = Exo(credentials)
+with Exo(credentials) as exo:
+    ...
 ```
+
+`Exo()` with no arguments builds `Credentials()` and the base URL from the configuration above.
 
 ## Using the EXO API
 
@@ -83,16 +87,36 @@ The API is a work in progress, it returns dictionaries exactly as provided by th
 Responses are parsed JSON (dicts and lists), or `bytes` for non-JSON content such as PDF reports. Errors raise
 subclasses of `exo.exceptions.ExoException` (`ExoNotFound`, `ExoUnauthorised`, ...), which keep the HTTP `response`.
 
-Pagination is controlled with the `page` and `pagesize` query parameters (default page size 100):
+Every EXO object is a lowercase attribute (`exo.debtor`, `exo.stockitem`, `exo.salesorder`), created on first use.
+The List API objects work the same way and are also available as `exo.listAPI.currency`. A misspelt name raises
+`AttributeError` with a suggestion. Use the singular object name; plural spellings passed to `Manager` still work
+for now but emit a `DeprecationWarning`.
 
 ```python
-exo.debtor.all({"page": 2})
 exo.debtor.search("acme")
 exo.stockitem.get(42)
+exo.debtor.all({"page": 2})                   # one page (default page size 100)
+for debtor in exo.debtor.iter_all():          # every page, until a short or empty one
+    ...
+exo.discovery()                               # GET <base>/discovery, parsed JSON
 ```
 
-The on-premise base URL comes from `EXO_IP` and `EXO_PORT` in the `.env` file. For the cloud (LiveRelay) service
-pass it explicitly: `Exo(credentials, base_url="https://exo.api.myob.com")`.
+### Connections and retries
+
+All managers of one `Exo` share a single `requests.Session`, so connections are reused. Pass your own with
+`Exo(credentials, session=my_session)`; you then close it yourself.
+
+Responses 429, 502, 503 and 504 are retried up to 3 times with exponential backoff that honours `Retry-After`.
+Only idempotent methods (not `POST`) are retried. Tune or disable it on the session `Exo` creates:
+
+```python
+Exo(credentials, retries=5, backoff_factor=1.0)
+Exo(credentials, retries=0)                        # off
+Exo(credentials, retries=urllib3.util.Retry(...))  # full control
+```
+
+The base URL defaults to the configuration above. For the cloud (LiveRelay) service pass it explicitly:
+`Exo(credentials, base_url="https://exo.api.myob.com")`.
 
 ## Examples
 

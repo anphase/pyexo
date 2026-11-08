@@ -5,9 +5,6 @@ installation. Validation does not save anything.
 """
 
 from exo import Exo
-from exo.auth import Credentials
-
-exo = Exo(Credentials())
 
 order = {
     "debtorid": 1,
@@ -15,5 +12,6 @@ order = {
     "lines": [{"stockcode": "WIDGET-1", "orderquantity": 2}],
 }
 
-validated_order = exo.salesorder.save(order, validate=True)
-print(exo.salesorder.save(validated_order))
+with Exo() as exo:
+    validated_order = exo.salesorder.save(order, validate=True)
+    print(exo.salesorder.save(validated_order))
