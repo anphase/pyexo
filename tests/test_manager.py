@@ -13,7 +13,10 @@ from .conftest import load_fixture
 def test_all_builds_url_and_sends_default_pagination(credentials, base_url):
     responses.get(f"{base_url}/Debtor", json=load_fixture("debtor_list.json"))
     result = Manager("Debtor", credentials, base_url=base_url).all()
-    assert [d["accountno"] for d in result] == ["TEST001", "TEST002"]
+    assert [(d["id"], d["alphacode"], d["accountname"]) for d in result] == [
+        (1, "TEST001", "Example Trading Pty Ltd"),
+        (2, "TEST002", "Sample Supplies Ltd"),
+    ]
     request = responses.calls[0].request
     assert request.url == f"{base_url}/Debtor?pagesize=100"
     assert request.headers["Accept"] == "application/json"
@@ -39,10 +42,10 @@ def test_get_fetches_single_object(credentials, base_url):
 @responses.activate
 def test_search_url_encodes_the_query(credentials, base_url):
     responses.get(f"{base_url}/Debtor/search", json=[])
-    Manager("Debtor", credentials, base_url=base_url).search("name like A&B co")
+    Manager("Debtor", credentials, base_url=base_url).search("accountname like A&B co")
     url = responses.calls[0].request.url
     assert url.startswith(f"{base_url}/Debtor/search?")
-    assert "q=name+like+A%26B+co" in url or "q=name%20like%20A%26B%20co" in url
+    assert "q=accountname+like+A%26B+co" in url or "q=accountname%20like%20A%26B%20co" in url
     assert url.count("?") == 1
 
 

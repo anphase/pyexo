@@ -9,7 +9,7 @@ page = 1
 while True:
     debtors = exo.debtor.all({"page": page, "pagesize": 100})
     for debtor in debtors:
-        print(debtor["accountno"], debtor["name"])
+        print(debtor["id"], debtor["alphacode"], debtor["accountname"])
     if len(debtors) < 100:
         break
     page += 1
