@@ -7,7 +7,7 @@ import responses
 from urllib3.util.retry import Retry
 
 from exo import Exo
-from exo.exceptions import ExoException, ExoPaginationError
+from exo.exceptions import ExoException, ExoExceptionUnknown, ExoPaginationError
 from exo.manager import Manager
 
 from .conftest import load_fixture
@@ -395,3 +395,48 @@ def test_changing_retry_reaches_managers_already_in_use(credentials, base_url):
     exo.retry = policy
     assert exo.debtor.retry is policy and exo.retry is policy
     assert exo.stockitem.retry.total == 1  # and managers created later
+
+
+@pytest.mark.parametrize(
+    ("id", "encoded"),
+    [
+        ("../SalesOrder/1", "..%2FSalesOrder%2F1"),
+        ("1?status=0", "1%3Fstatus%3D0"),
+        ("1#frag", "1%23frag"),
+        ("ABC/123", "ABC%2F123"),
+        ("A B", "A%20B"),
+    ],
+)
+@responses.activate
+def test_ids_are_percent_encoded_so_they_cannot_rewrite_the_path(
+    credentials, base_url, id, encoded
+):
+    responses.get(f"{base_url}/StockItem/{encoded}", json={"id": id})
+    responses.delete(f"{base_url}/StockItem/{encoded}", json={})
+    manager = Manager("StockItem", credentials, base_url=base_url)
+    manager.get(id)
+    manager.delete(id)
+    assert responses.calls[0].request.url == f"{base_url}/StockItem/{encoded}?pagesize=100"
+    assert responses.calls[1].request.url == f"{base_url}/StockItem/{encoded}"
+
+
+@responses.activate
+def test_redirects_are_not_followed_so_credentials_stay_with_the_configured_host(
+    credentials, base_url
+):
+    responses.get(f"{base_url}/Debtor/1", status=302, headers={"Location": "http://other.test/"})
+    responses.get("http://other.test/", json={})
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    with pytest.raises(ExoExceptionUnknown) as info:
+        manager.get(1)
+    assert info.value.response.status_code == 302
+    assert [call.request.url for call in responses.calls] == [f"{base_url}/Debtor/1?pagesize=100"]
+
+
+@pytest.mark.parametrize("id", ["", ".", ".."])
+def test_empty_and_dot_ids_are_rejected(credentials, base_url, id):
+    manager = Manager("Debtor", credentials, base_url=base_url)
+    with pytest.raises(ValueError, match="not a valid id"):
+        manager.get(id)
+    with pytest.raises(ValueError, match="not a valid id"):
+        manager.delete(id)

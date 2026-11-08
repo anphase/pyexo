@@ -125,6 +125,21 @@ and the adapter is switched to not retry on its own, so retries are never double
 The base URL defaults to the configuration above. For the cloud (LiveRelay) service pass it explicitly:
 `Exo(credentials, base_url="https://exo.api.myob.com")`.
 
+## Security notes
+
+- Every request carries your username and password (HTTP Basic), developer key and token as headers.
+  The on-premise EXO API is served over plain `http://`, so anything on the path between you and the
+  server can read them: keep that traffic on a trusted network, or put TLS in front of the API and use an
+  `https://` base URL. The cloud service is `https://` only.
+- An `ExoException` keeps the `requests.Response`, and `response.request.headers` holds those same
+  credentials. Log the exception message or `response.status_code`, not the whole response or request.
+- `.env` is read from the current directory. Keep it out of version control (it is in `.gitignore`) and
+  readable only by you.
+- Ids passed to `get()` and `delete()` are percent-encoded (and an empty id, `.` or `..` is rejected), so an id from
+  user input cannot change the request path or query.
+- Redirects are not followed: a 3xx response raises `ExoExceptionUnknown` instead of re-sending your
+  credentials to whatever host the `Location` header names.
+
 ## Examples
 
 Short scripts in [`examples/`](examples/): [list debtors](examples/list_debtors.py),

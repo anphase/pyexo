@@ -5,7 +5,18 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- 2026-11-09: `get()` and `delete()` percent-encode the id, so an id taken from user input such as
+  `../SalesOrder/1`, `1?status=0` or `1#x` stays one path segment and cannot rewrite the request.
+  An id that genuinely contains `/` (a stock code like `ABC/123`) is now sent as `ABC%2F123`, which is
+  the correct way to address it; an empty id, `.` and `..` raise `ValueError`.
+- 2026-11-09: redirects are no longer followed. `requests` drops `Authorization` on a cross-host redirect
+  but kept the `x-myobapi-key` and `x-myobapi-exotoken` headers, so a redirect could have sent them to
+  another host. A 3xx response now raises `ExoExceptionUnknown`.
+
 ### Added
+- 2026-11-09: a "Security notes" section in the README (cleartext `http://` on-premise URLs, what an
+  exception's `response` carries, and keeping `.env` private).
 - 2026-11-08: `scripts/ci-local.sh` ratchets line coverage (100%) and the highest function
   cyclomatic complexity (11); baselines are recorded in `docs/quality/baseline.md`.
 

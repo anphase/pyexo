@@ -4,6 +4,7 @@ import json
 import time
 from collections.abc import Iterator
 from typing import Any
+from urllib.parse import quote
 
 import requests
 from urllib3.exceptions import HTTPError as Urllib3Error
@@ -75,6 +76,15 @@ class BaseManager:
     def _url(self, *parts: str) -> str:
         return "/".join([self.base_url, self.name, *parts])
 
+    def _id_url(self, id: str | int) -> str:
+        # Percent-encode everything, so an id taken from user input ("../Other/1",
+        # "1?x=y", "1#f") stays one path segment and cannot rewrite the request.
+        # quote() leaves "." and ".." alone and a server would resolve them.
+        text = str(id)
+        if text in ("", ".", ".."):
+            raise ValueError(f"{id!r} is not a valid id")
+        return self._url(quote(text, safe=""))
+
     def _merged(self, params: Params | None) -> Params:
         return {**self.extra_params, **(params or {})}
 
@@ -122,7 +132,7 @@ class BaseManager:
             page += 1
 
     def get(self, id: str | int, params: Params | None = None) -> Any:
-        return self._request("get", self._url(str(id)), self._merged(params))
+        return self._request("get", self._id_url(id), self._merged(params))
 
     def search(self, search_params: str, params: Params | None = None) -> Any:
         return self._request(
@@ -130,7 +140,7 @@ class BaseManager:
         )
 
     def delete(self, id: str | int) -> Any:
-        return self._request("delete", self._url(str(id)))
+        return self._request("delete", self._id_url(id))
 
     def put(self, data: Body, validate: bool = False) -> Any:
         return self._write("put", data, validate)
@@ -190,6 +200,9 @@ class BaseManager:
                     params=params,
                     timeout=self.timeout,
                     stream=True,
+                    # EXO never redirects; following one would send the API key and
+                    # token headers to whatever host the Location names.
+                    allow_redirects=False,
                 )
                 response.content  # noqa: B018 - read now so a failure is caught here
             except RETRYABLE_ERRORS as error:
