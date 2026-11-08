@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 
+from exo import settings
 from exo.auth import Credentials
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -18,7 +19,7 @@ def load_fixture(name: str) -> Any:
 def isolated_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Keep a developer's .env file and EXO_* variables out of every test."""
     monkeypatch.chdir(tmp_path)
-    for name in ("EXO_USERNAME", "EXO_PASSWORD", "EXO_API_KEY", "EXO_TOKEN"):
+    for name in (*settings.AUTH_VARS, "EXO_BASE_URL", "EXO_IP", "EXO_PORT"):
         monkeypatch.delenv(name, raising=False)
 
 

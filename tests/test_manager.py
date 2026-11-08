@@ -124,7 +124,7 @@ def test_exo_exposes_a_manager_per_object(credentials, base_url):
 
 
 def test_default_base_url_comes_from_settings(credentials, monkeypatch, tmp_path):
-    (tmp_path / ".env").write_text("[DEFAULT]\nEXO_IP = 10.1.1.1\nEXO_PORT = 1\n")
+    (tmp_path / ".env").write_text("EXO_IP=10.1.1.1\nEXO_PORT=1\n")
     monkeypatch.chdir(tmp_path)
     assert Manager("Debtor", credentials).base_url == "http://10.1.1.1:1"
 
@@ -172,7 +172,7 @@ def test_exo_reads_credentials_and_base_url_from_configuration(monkeypatch):
         "EXO_TOKEN": "t",
     }.items():
         monkeypatch.setenv(name, value)
-    (Path.cwd() / ".env").write_text("[DEFAULT]\nEXO_IP = 10.2.2.2\nEXO_PORT = 9\n")
+    (Path.cwd() / ".env").write_text("EXO_IP=10.2.2.2\nEXO_PORT=9\n")
     assert Exo().base_url == "http://10.2.2.2:9"
 
 

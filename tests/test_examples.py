@@ -14,9 +14,8 @@ EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 @pytest.fixture(autouse=True)
 def example_config(tmp_path):
     (tmp_path / ".env").write_text(
-        "[DEFAULT]\nEXO_IP = exo.test\nEXO_PORT = 8888\n"
-        "[AUTH]\nEXO_USERNAME = demo\nEXO_PASSWORD = secret\n"
-        "EXO_API_KEY = key-123\nEXO_TOKEN = token-456\n"
+        "EXO_BASE_URL=http://exo.test:8888\nEXO_USERNAME=demo\nEXO_PASSWORD=secret\n"
+        "EXO_API_KEY=key-123\nEXO_TOKEN=token-456\n"
     )
 
 

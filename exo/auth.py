@@ -9,7 +9,7 @@ from .settings import AUTH_VARS, get_auth
 class Credentials:
     """The three headers EXO requires on every request.
 
-    Any argument left as None is read from the ``.env`` file or environment.
+    Any argument left as None is read from the environment or the ``.env`` file.
     """
 
     def __init__(

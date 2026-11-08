@@ -14,49 +14,40 @@ All requests made to the MYOB EXO API require authentication headers that contai
 developer key and an EXO token generated using the EXO Config application in your installation. You can find details 
 for how to get these from the MYOB EXO Developer pages:[MYOB EXO API page](http://developer.myob.com/api/exo/exo-api-overview/authentication/).
 
-#### Environment variables
+#### Configuration
 
-For convenience you can setup the following environment variables:
-EXO_USERNAME, EXO_PASSWORD, EXO_API_KEY, EXO_TOKEN. For example, in Linux you could add these 
-variables into ~./bashrc and for MacOS into ~/.bash_profile as shown below. You can also specify the environment 
-variables in Windows. 
-Note that you will need to reload the terminal for these to come into effect e.g using 
-```shell script
-$ . ~/.bashrc
-```
-or by restarting the terminal.
+Credentials and the base URL are looked up in this order: arguments you pass in code, then environment
+variables, then an optional `.env` file in the current directory.
+
+| Setting  | Variable          |
+| -------- | ----------------- |
+| Username | `EXO_USERNAME`    |
+| Password | `EXO_PASSWORD`    |
+| API key  | `EXO_API_KEY`     |
+| Token    | `EXO_TOKEN`       |
+| Base URL | `EXO_BASE_URL`, or `EXO_IP` and `EXO_PORT` (builds `http://<ip>:<port>`) |
 
 ```shell script
 $ export EXO_USERNAME=demo
 $ export EXO_PASSWORD=DEMO
 $ export EXO_API_KEY=ABCta353c5R6YXRvcjo=
-$ export EXO_TOKEN=123AA353c5R6YXRsTAQ18*%
+$ export EXO_TOKEN='123AA353c5R6YXRsTAQ18*%'
+$ export EXO_BASE_URL=http://192.168.0.1:8888
 ```
 
-You can also set the environment variables from a configuration file as below:
+Or put the same names in a standard `KEY=VALUE` `.env` file (`#` comments, an optional `export ` prefix and
+single or double quotes are understood):
 
-Create a '.env' file in the root directory of your application and configure it as shown below:
 ```dotenv
-[DEFAULT]
-EXO_IP = <exo server ip>
-EXO_PORT = <api port>
-[AUTH]
-EXO_USERNAME = <your exo username>
-EXO_PASSWORD = <you exo password>
-EXO_API_KEY = <key>
-EXO_TOKEN = <token>
+EXO_BASE_URL=http://192.168.0.1:8888
+EXO_USERNAME=demo
+EXO_PASSWORD=DEMO
+EXO_API_KEY=ABCta353c5R6YXRvcjo=
+EXO_TOKEN=123AA353c5R6YXRsTAQ18*%
 ```
-e.g.
-```dotenv
-[DEFAULT]
-EXO_IP = 192.168.0.1
-EXO_PORT = 8888
-[AUTH]
-EXO_USERNAME = demo
-EXO_PASSWORD = DEMO
-EXO_API_KEY = ABCta353c5R6YXRvcjo=
-EXO_TOKEN = 11111111111122222222222222222333333333...
-```
+
+The INI-style `.env` with `[DEFAULT]` and `[AUTH]` sections used by 0.1 and 0.2 is still read, with a
+`DeprecationWarning`, and will be removed in a later release. Convert it to the format above.
 
 #### Setting the Authentication Headers
 
