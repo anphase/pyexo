@@ -44,7 +44,19 @@ class Manager(BaseManager):
         self.credentials = credentials
         self.base_url = (base_url or get_base_url()).rstrip("/")
         self.timeout = timeout
+        self._owns_session = session is None
         self.session = session or make_session()
         self.extra_params = {"pagesize": "100"}
         self.name = _canonical(name)
         self.user_agent = user_agent or default_user_agent()
+
+    def close(self) -> None:
+        """Close the session if this manager created it; a session passed in is yours to close."""
+        if self._owns_session:
+            self.session.close()
+
+    def __enter__(self) -> Manager:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()

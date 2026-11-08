@@ -335,3 +335,16 @@ def test_changing_timeout_and_user_agent_reaches_managers_already_in_use(credent
     exo.debtor.all()
     assert responses.calls[2].request.headers["User-Agent"].startswith("pyexo/")
     assert exo.user_agent is None and exo.timeout == 30
+
+
+def test_standalone_manager_closes_only_a_session_it_created(credentials, base_url):
+    closed = []
+    with Manager("Debtor", credentials, base_url=base_url) as manager:
+        manager.session.close = lambda: closed.append("own")  # type: ignore[method-assign]
+    assert closed == ["own"]
+
+    session = requests.Session()
+    session.close = lambda: closed.append("given")  # type: ignore[method-assign]
+    with Manager("Debtor", credentials, base_url=base_url, session=session) as manager:
+        assert manager.session is session
+    assert closed == ["own"]
