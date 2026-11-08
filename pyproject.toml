@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyexo"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Python client for the MYOB EXO REST API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,6 +33,9 @@ Issues = "https://github.com/anphase/pyexo/issues"
 
 [tool.setuptools]
 packages = ["exo"]
+
+[tool.setuptools.dynamic]
+version = { attr = "exo.__version__" }
 
 [tool.setuptools.package-data]
 exo = ["py.typed"]
