@@ -19,6 +19,7 @@ for how to get these from the MYOB EXO Developer pages:[MYOB EXO API page](http:
 Credentials and the base URL are looked up in this order: arguments you pass in code, then environment
 variables, then an optional `.env` file in the current directory.
 
+<!-- slopcheck: allow IP_ENV (these variable names are the library's configuration interface) -->
 | Setting  | Variable          |
 | -------- | ----------------- |
 | Username | `EXO_USERNAME`    |
