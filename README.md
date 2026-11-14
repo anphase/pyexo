@@ -128,18 +128,19 @@ The base URL defaults to the configuration above. For the cloud (LiveRelay) serv
 
 ## Security notes
 
-- Every request carries your username and password (HTTP Basic), developer key and token as headers.
-  The on-premise EXO API is served over plain `http://`, so anything on the path between you and the
-  server can read them: keep that traffic on a trusted network, or put TLS in front of the API and use an
-  `https://` base URL. The cloud service is `https://` only.
-- An `ExoException` keeps the `requests.Response`, and `response.request.headers` holds those same
-  credentials. Log the exception message or `response.status_code`, not the whole response or request.
-- `.env` is read from the current directory. Keep it out of version control (it is in `.gitignore`) and
-  readable only by you.
-- Ids passed to `get()` and `delete()` are percent-encoded (and an empty id, `.` or `..` is rejected), so an id from
-  user input cannot change the request path or query.
-- Redirects are not followed: a 3xx response raises `ExoExceptionUnknown` instead of re-sending your
-  credentials to whatever host the `Location` header names.
+- PyExo sends your username and password through HTTP Basic authentication, with your developer key
+  and token in additional headers. When your base URL uses `http://`, anyone able to inspect that
+  traffic can read these credentials. You can protect traffic with TLS and configure PyExo with an
+  `https://` base URL.
+- PyExo attaches the response to HTTP error exceptions, including request headers containing your
+  credentials. When a response exists, you can log its status code; exception messages contain server
+  response text that needs checking for sensitive data before logging.
+- PyExo reads `.env` from your current directory. You should keep this file out of version control and
+  restrict read access to your account; the repository's `.gitignore` already excludes it.
+- PyExo percent-encodes IDs passed to `get()` and `delete()` and rejects empty IDs, `.` and `..`. This
+  encoding keeps characters such as `/`, `?` and `#` inside the ID segment of the URL PyExo sends.
+- PyExo raises `ExoExceptionUnknown` for redirect responses and does not send a follow-up request to
+  the URL in the `Location` header.
 
 ## Examples
 
