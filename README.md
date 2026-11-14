@@ -132,9 +132,10 @@ The base URL defaults to the configuration above. For the cloud (LiveRelay) serv
   and token in additional headers. When your base URL uses `http://`, anyone able to inspect that
   traffic can read these credentials. You can protect traffic with TLS and configure PyExo with an
   `https://` base URL.
-- PyExo attaches the response to HTTP error exceptions, including request headers containing your
-  credentials. When a response exists, you can log its status code; exception messages contain server
-  response text that needs checking for sensitive data before logging.
+- PyExo attaches the HTTP response to each HTTP error exception. You can access credential-bearing
+  request headers through `response.request.headers`. When a response exists, you can log its status
+  code. PyExo includes server response text in exception messages; you should check that text for
+  sensitive data before logging it.
 - PyExo reads `.env` from your current directory. You should keep this file out of version control and
   restrict read access to your account; the repository's `.gitignore` already excludes it.
 - PyExo percent-encodes IDs passed to `get()` and `delete()` and rejects empty IDs, `.` and `..`. This
